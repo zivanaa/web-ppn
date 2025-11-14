@@ -1,0 +1,33 @@
+.gfab-container {
+	position: fixed;
+	bottom: 0;
+	right: 0;
+	padding: 15px;
+	display: flex;
+	align-items: center;
+	flex-direction: column;
+}
+
+.gfab-38 {
+	width: 38px !important;
+	height: 38px !important;
+	margin-bottom: 10px;
+}
+
+.gfab {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	list-style: none;
+	width: 52px;
+	height: 52px;
+	border-radius: 50%;
+	background-color: #2D3468;
+	border: 2px solid white;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	* {
+		scroll-behavior: smooth;
+	}
+}

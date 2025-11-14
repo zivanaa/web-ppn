@@ -1,0 +1,279 @@
+/* === GLOBAL === */
+body {
+  background-color: #f4f5f7;
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+}
+
+.main {
+  flex: 1;
+  padding: 20px 25px;
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+/* === HEADER === */
+.header-section {
+  background: url('../../asset/img/HeadBanner.png') center/cover;
+  border-radius: 12px;
+  padding: 20px;
+  color: white;
+  font-weight: 600;
+  font-size: 1.3rem;
+  margin-bottom: 20px;
+}
+
+/* === STATISTIC CARD === */
+.card-stat {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+  padding: 16px;
+  position: relative;
+}
+
+.card-stat.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+}
+
+.card-stat h3 {
+  font-weight: 700;
+  color: #2B8D4C;
+  margin: 0;
+}
+
+.card-stat .label {
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.chart-label {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  font-size: 0.85rem;
+  color: #777;
+}
+
+/* === SEARCH BAR === */
+.search-bar-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 6px 10px;
+  width: 240px;
+}
+
+.search-box i {
+  color: #777;
+  margin-right: 6px;
+}
+
+.search-box input {
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+/* === BUTTONS === */
+.btn-filter,
+.btn-sort,
+.btn-add {
+  background-color: #2B8D4C;
+  color: white;
+  border: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.25s ease;
+}
+
+.btn-add {
+  background-color: #2B8D4C;
+}
+
+.btn-filter:hover,
+.btn-sort:hover,
+.btn-add:hover {
+  transform: translateY(-2px);
+  opacity: 0.9;
+}
+
+/* === TABLE WRAPPER === */
+.table-wrapper {
+  background-color: #fff;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  overflow-x: auto;
+  white-space: nowrap;
+  margin-top: 15px;
+}
+
+/* Scrollbar halus */
+.table-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+.table-wrapper::-webkit-scrollbar-thumb {
+  background: #2B8D4C;
+  border-radius: 10px;
+}
+.table-wrapper::-webkit-scrollbar-track {
+  background: #d8f0de;
+}
+
+/* === TABLE === */
+.table {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.table thead th {
+  background-color: #2B8D4C;
+  color: white;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.table th, .table td {
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.table tbody tr:hover {
+  background-color: #edf8f0;
+  transition: background 0.2s ease-in-out;
+}
+
+/* === BUTTON DALAM TABLE === */
+.table .btn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: 0.2s ease;
+}
+
+.table .btn:hover {
+  transform: scale(1.05);
+}
+
+/* === PAGINATION === */
+.pagination-wrapper {
+  padding: 20px 0;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.btn-page {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  font-weight: 600;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.25s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+/* Tombol aktif */
+.btn-page.active {
+  background-color: #2B8D4C;
+  color: #fff;
+}
+.btn-page.nav i {
+  color: white;
+}
+
+/* Tombol next/prev */
+.btn-page.nav {
+    width: 32px;
+    height: 32px;
+  background-color: #F9D70B;
+  color: #fffefe;
+}
+
+.btn-page.nav:hover {
+  background-color: #eacb0a;
+}
+
+/* Hover efek lembut */
+.btn-page:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+}
+
+/* === Tombol Gradasi Hijau-Kuning === */
+.gradient-btn {
+  background: linear-gradient(90deg, #4E8E55 0%, #B3D134 100%);
+  border: none;
+  color: #fff;
+  border-radius: 10px;
+  font-weight: 600;
+  transition: 0.3s;
+}
+.gradient-btn:hover {
+  opacity: 0.9;
+}
+
+/* === Tombol Outline Hijau === */
+.outline-btn {
+  border: 2px solid #4E8E55;
+  color: #4E8E55;
+  background: white;
+  border-radius: 10px;
+  font-weight: 600;
+  transition: 0.3s;
+}
+.outline-btn:hover {
+  background: #f6fff5;
+}
+
+/* Tombol kecil kaca pembesar di pojok kanan bawah */
+.btn-analitik-btn {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: linear-gradient(135deg, #FFD95A, #F6B93B);
+  border: none;
+  color: white;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.btn-analitik-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 7px rgba(0,0,0,0.3);
+}
+

@@ -1,0 +1,125 @@
+.footer {
+    background-color: #1B5930;
+    color: #ffffff;
+    font-family: 'Heebo', sans-serif;
+    padding-top: 40px;
+    padding-bottom: 25px;
+    width: 100%;
+    margin: 0;
+}
+
+/* Container tengah */
+.footer-container {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 40px;
+    box-sizing: border-box;
+}
+
+/* ========== BARIS ATAS ========== */
+.footer-top {
+    display: flex;
+    justify-content: space-between; 
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.footer-logos {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.footer-logos img {
+    height: 50px;
+    object-fit: contain;
+}
+
+.footer-copy {
+    font-size: 0.95rem;
+    color: #ffffff;
+    text-align: right;
+    margin: 0;
+}
+
+/* ========== GARIS PEMISAH ========== */
+.footer hr {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    margin: 20px 0;
+}
+
+/* ========== BARIS BAWAH ========== */
+.footer-bottom {
+    display: flex;
+    justify-content: space-between; 
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* Link kiri */
+.footer-links {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 25px;
+}
+
+.footer-links a {
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.footer-links a:hover {
+    color: #FFED64;
+}
+
+/* Sosial media kanan */
+.footer-social {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 20px;
+}
+
+.footer-social a {
+    color: #ffffff;
+    font-size: 1.4rem;
+    transition: color 0.3s ease, transform 0.2s ease;
+}
+
+.footer-social a:hover {
+    color: #FFED64;
+    transform: scale(1.2);
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 992px) {
+    .footer-container {
+        padding: 0 20px;
+    }
+
+    .footer-top,
+    .footer-bottom {
+        flex-direction: column;
+        text-align: center;
+        gap: 15px;
+    }
+
+    .footer-copy {
+        text-align: center;
+    }
+
+    .footer-social {
+        justify-content: center;
+    }
+
+    .footer-links {
+        justify-content: center;
+    }
+}

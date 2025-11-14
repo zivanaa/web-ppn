@@ -1,0 +1,42 @@
+/* ===========================
+   LOGIN MODAL - PPN STYLE
+   =========================== */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+body {
+  font-family: 'Poppins', sans-serif;
+}
+
+
+.custom-input {
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background: #fff;
+  border-image: linear-gradient(90deg, #4CAF50, #FFC107) 1;
+  box-shadow: none;
+  transition: all 0.3s ease;
+}
+
+.custom-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 0.2rem rgba(76, 175, 80, 0.2);
+}
+
+/* Tombol gradient */
+.btn-gradient {
+  background: linear-gradient(90deg, #4CAF50, #FFC107);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  transition: 0.3s ease;
+}
+
+.btn-gradient:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* Modal styling */
+.modal-content {
+  border-radius: 20px !important;
+}

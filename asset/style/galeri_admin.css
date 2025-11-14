@@ -1,0 +1,83 @@
+ .filter-tabs {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .filter-tabs button {
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      border-radius: 20px;
+      padding: 10px 24px;
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+    .btn-outline {
+      background-color: #fff;
+      color: #1976FF;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    }
+    .btn-outline:hover { background-color: #f5f7fa; }
+    .btn-primary-tab {
+      background-color: #1976FF;
+      color: #fff;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+    }
+    .btn-primary-tab:hover { background-color: #1668e3; }
+    .btn-action {
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      border-radius: 20px;
+      padding: 10px 28px;
+      font-size: 14px;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+      background-color: #fff;
+    }
+    .btn-tambah { color: #28a745; }
+    .btn-tambah:hover { background-color: #f5f7fa; }
+    .btn-hapus { color: #dc3545; }
+    .btn-hapus:hover { background-color: #f5f7fa; }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .gallery-card {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s;
+      cursor: pointer;
+    }
+    .gallery-card:hover { transform: translateY(-5px); }
+    .gallery-card img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+    }
+
+    /* Modal style */
+    .notif-card {
+      background: #fff;
+      animation: fadeScale 0.3s ease;
+    }
+    @keyframes fadeScale {
+      from {opacity: 0; transform: scale(0.9);}
+      to {opacity: 1; transform: scale(1);}
+    }
+    .shadow { box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); }
+
+    .header-section {
+  background: url('../../asset/img/HeadBanner.png') center/cover;
+  border-radius: 12px;
+  padding: 20px;
+  color: white;
+  font-weight: 600;
+  font-size: 1.3rem;
+  margin-bottom: 20px;
+}
