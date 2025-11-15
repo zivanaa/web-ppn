@@ -75,187 +75,967 @@ $kategori_result = mysqli_query($conn, $kategori_query);
     <link href="<?= $base_url ?>asset/style/halaman_produk.css" rel="stylesheet">
     
     <style>
-        * { font-family: 'Poppins', sans-serif; }
-        body { font-weight: 400; }
-        h1, h2, h3, h4, h5, h6 { font-weight: 600; }
-        .fw-bold { font-weight: 700 !important; }
-        .fw-semibold { font-weight: 600 !important; }
+        /* Reset & Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
-        .produk-title-container {
-            margin: 3rem 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e8f5e9 100%);
+    overflow-x: hidden;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    animation: fadeIn 0.8s ease-in;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+/* Navbar dropdown muncul */
+.navbar {
+    overflow: visible !important;
+    position: relative;
+    z-index: 1000;
+}
+
+/* Full-width main content */
+.main-content {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: #f6f7f9;
+}
+
+/* Semua section full-width */
+.hero-section,
+.main-product,
+.detail-section,
+.benefits-section,
+.usage-section {
+    width: 100%;
+    padding: 3rem 0;
+}
+
+/* Konten di dalam section */
+.hero-content,
+.detail-content,
+.benefits-grid,
+.usage-category,
+.usage-item {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding-left: 40px;
+    padding-right: 40px;
+}
+
+/* Hero Section */
+.hero-section {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 3rem 0;
+}
+.hero-divider {
+    flex: 1;
+    height: 2px;
+    background: #28a745;
+    margin: 0 1rem;
+}
+.hero-title {
+    font-size: 2rem;
+    font-weight: bold;
+    text-align: center;
+    letter-spacing: 1px;
+}
+
+/* ===== MAIN PRODUCT (gambar + deskripsi) ===== */
+.main-product {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    max-width: 1200px;
+    margin: 0 auto 3rem auto;
+    padding: 3rem 50px;
+    background: transparent; 
+}
+.product-image-container {
+    flex: 1 1 400px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.product-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.product-description {
+    flex: 1 1 400px;
+    font-size: 1.05rem;
+    line-height: 1.7;
+}
+.product-title {
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: #28a745;
+    margin-bottom: 1rem;
+}
+
+/* Button */
+.order-btn, .order-btn-bottom {
+    background: linear-gradient(90deg, #2B8D4C 0%, #D5D44B 100%);
+    color: white;
+    border: none;
+    padding: 12px 35px;
+    cursor: pointer;
+    border-radius: 50px; 
+    margin-top: 15px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px rgba(43, 141, 76, 0.3);
+}
+.order-btn:hover, .order-btn-bottom:hover {
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(43, 141, 76, 0.4);
+}
+
+/* ===== CARD WRAPPER UNTUK SECTION ===== */
+.detail-section,
+.benefits-section,
+.usage-section {
+    background: #ffffff;
+    max-width: 1200px;
+    margin: 0 auto 3rem auto;
+    border-radius: 16px;
+    padding: 3rem 50px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+}
+
+/* Section Title */
+.section-title {
+    font-weight: 700;
+    font-size: 1.6rem;
+    color: #28a745;
+    text-align: center;
+    margin-bottom: 2rem;
+    letter-spacing: 0.5px;
+}
+
+.detail-content {
+    font-size: 1.05rem;
+    line-height: 1.7;
+    text-align: justify;
+}
+
+/* Benefits Grid */
+.benefits-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+}
+.benefit-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    transition: 0.3s;
+}
+.benefit-card:hover {
+    background-color: #e9f9ed;
+    transform: translateY(-3px);
+}
+.benefit-icon {
+    font-size: 1.5rem;
+    color: #fff200ff;
+}
+
+/* Usage Section */
+.usage-category {
+    margin-bottom: 2.5rem;
+}
+.usage-subtitle {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+.usage-item {
+    margin-bottom: 0.75rem;
+    line-height: 1.6;
+}
+.dosage {
+    font-weight: bold;
+    color: #28a745;
+}
+
+/* Responsiveness */
+@media (max-width: 768px) {
+    .hero-title {
+        font-size: 1.5rem;
+    }
+    .main-product {
+        flex-direction: column;
+        text-align: center;
+        padding: 2rem 25px;
+    }
+    .product-description {
+        padding-top: 1rem;
+    }
+    .benefits-grid {
+        gap: 1rem;
+    }
+    .detail-section,
+    .benefits-section,
+    .usage-section {
+        padding: 2rem 25px;
+    }
+}
+
+
+/* Hero Section */
+.hero-section {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 0 40px;
+    gap: 30px;
+    animation: fadeIn 1s ease-in;
+}
+
+.hero-divider {
+    height: 2px;
+    width: 150px;
+    background: linear-gradient(90deg, transparent, #4CAF50, transparent);
+    animation: slideInLeft 1s ease-out;
+}
+
+.hero-divider.left {
+    background: linear-gradient(90deg, transparent, #4CAF50);
+}
+
+.hero-divider.right {
+    background: linear-gradient(90deg, #4CAF50, transparent);
+    animation: slideInRight 1s ease-out;
+}
+
+.hero-title {
+    font-size: 3rem;
+    font-weight: 700;
+    color: #2E7D32;
+    letter-spacing: 3px;
+    text-align: center;
+    position: relative;
+    animation: scaleIn 0.8s ease-out;
+}
+
+.hero-title::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 4px;
+    background: #4CAF50;
+    border-radius: 2px;
+}
+
+/* Product Header */
+.product-header {
+    text-align: center;
+    padding: 20px 0;
+    animation: fadeIn 1.2s ease-in;
+}
+
+.product-title {
+    font-size: 1.5rem;
+    color: #333;
+    font-weight: 500;
+}
+
+/* Main Product Section */
+.main-product {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 50px;
+    align-items: center;
+    padding: 40px 0;
+    margin: 40px 0;
+}
+
+.product-image-container {
+    animation: slideInLeft 1s ease-out;
+}
+
+.product-image-wrapper {
+    background: white;
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    transition: all 0.4s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.product-image-wrapper::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        45deg,
+        transparent,
+        rgba(76, 175, 80, 0.1),
+        transparent
+    );
+    animation: shimmer 3s infinite;
+}
+
+.product-image-wrapper:hover {
+    transform: translateY(-10px) scale(1.05);
+    box-shadow: 0 20px 60px rgba(76, 175, 80, 0.3);
+}
+
+.product-image {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: transform 0.4s ease;
+}
+
+.product-image-wrapper:hover .product-image {
+    transform: scale(1.1);
+}
+
+.product-description {
+    animation: slideInRight 1s ease-out;
+}
+
+.product-text {
+    font-size: 1.2rem;
+    line-height: 1.8;
+    color: #555;
+    margin-bottom: 30px;
+    position: relative;
+    padding-left: 20px;
+}
+
+.product-text::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 4px;
+    background: linear-gradient(180deg, #4CAF50, #2E7D32);
+    border-radius: 2px;
+}
+
+/* Buttons */
+.order-btn, .order-btn-bottom {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    padding: 15px 40px;
+    border: none;
+    border-radius: 50px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.order-btn::before, .order-btn-bottom::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.order-btn:hover::before, .order-btn-bottom:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.order-btn:hover, .order-btn-bottom:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(76, 175, 80, 0.4);
+    animation: pulse 0.6s ease;
+}
+
+.order-btn:active, .order-btn-bottom:active {
+    transform: translateY(-1px);
+}
+
+.order-btn-bottom {
+    display: block;
+    margin: 40px auto 0;
+}
+
+/* Detail Section */
+.detail-section {
+    background: white;
+    padding: 50px;
+    border-radius: 20px;
+    margin: 40px 0;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    animation: fadeIn 1.5s ease-in;
+}
+
+.section-title {
+    font-size: 2rem;
+    color: #2E7D32;
+    text-align: left;
+    margin-bottom: 30px;
+    font-weight: 700;
+    position: relative;
+    display: inline-block;
+    padding-bottom: 15px;
+}
+
+.section-title::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 4px;
+    background: #FFC107;
+    border-radius: 2px;
+}
+
+.detail-content {
+    animation: fadeIn 1.8s ease-in;
+}
+
+.detail-description {
+    font-size: 1.1rem;
+    line-height: 1.9;
+    color: #666;
+    text-align: justify;
+}
+
+/* Benefits Section */
+.benefits-section {
+    background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+    padding: 50px;
+    border-radius: 20px;
+    margin: 40px 0;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.benefits-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+    margin-top: 30px;
+}
+
+.benefit-card {
+    background: white;
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    transition: all 0.3s ease;
+    animation: scaleIn 0.5s ease-out;
+    animation-fill-mode: both;
+}
+
+.benefit-card:nth-child(1) { animation-delay: 0.1s; }
+.benefit-card:nth-child(2) { animation-delay: 0.2s; }
+.benefit-card:nth-child(3) { animation-delay: 0.3s; }
+.benefit-card:nth-child(4) { animation-delay: 0.4s; }
+.benefit-card:nth-child(5) { animation-delay: 0.5s; }
+.benefit-card:nth-child(6) { animation-delay: 0.6s; }
+.benefit-card:nth-child(7) { animation-delay: 0.7s; }
+
+.benefit-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 35px rgba(76, 175, 80, 0.2);
+    border-left: 4px solid #4CAF50;
+}
+
+.benefit-icon {
+    width: 30px;
+    height: 30px;
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: bold;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.benefit-card:hover .benefit-icon {
+    animation: bounce 0.6s ease;
+}
+
+.benefit-card p {
+    color: #555;
+    line-height: 1.6;
+    font-size: 1rem;
+}
+
+/* Usage Section */
+.usage-section {
+    background: white;
+    padding: 50px;
+    border-radius: 20px;
+    margin: 40px 0;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    animation: fadeIn 2s ease-in;
+}
+
+.usage-category {
+    margin: 40px 0;
+    padding: 30px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-radius: 15px;
+    border-left: 5px solid #4CAF50;
+    transition: all 0.3s ease;
+    animation: slideInLeft 0.8s ease-out;
+}
+
+.usage-category:hover {
+    transform: translateX(10px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.usage-subtitle {
+    font-size: 1.4rem;
+    color: #2E7D32;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+.usage-item {
+    margin: 15px 0;
+    padding: 15px;
+    background: white;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: all 0.3s ease;
+}
+
+.usage-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+}
+
+.dosage {
+    background: linear-gradient(135deg, #FFC107 0%, #FFB300 100%);
+    color: white;
+    padding: 8px 20px;
+    border-radius: 25px;
+    font-weight: 700;
+    font-size: 1rem;
+    white-space: nowrap;
+    box-shadow: 0 3px 10px rgba(255, 193, 7, 0.3);
+}
+
+.usage-item p {
+    color: #555;
+    line-height: 1.7;
+    font-size: 1rem;
+}
+
+.usage-item strong {
+    color: #2E7D32;
+    font-weight: 600;
+}
+
+/* Responsive Design */
+@media (max-width: 968px) {
+    .main-product {
+        grid-template-columns: 1fr;
+        gap: 30px;
+    }
+    
+    .hero-title {
+        font-size: 2.5rem;
+    }
+    
+    .hero-divider {
+        width: 100px;
+    }
+    
+    .benefits-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .detail-section, .benefits-section, .usage-section {
+        padding: 30px;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+    
+    .hero-title {
+        font-size: 2rem;
+        letter-spacing: 2px;
+    }
+    
+    .hero-divider {
+        width: 60px;
+    }
+    
+    .product-title {
+        font-size: 1.2rem;
+    }
+    
+    .section-title {
+        font-size: 1.5rem;
+    }
+    
+    .usage-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .dosage {
+        align-self: flex-start;
+    }
+}
+
+/* Loading Animation */
+@keyframes rotate {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Scroll Reveal Animation */
+.reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.8s ease;
+}
+
+.reveal.active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+ /* Navbar dropdown muncul */
+    .navbar {
+        overflow: visible !important;
+        position: relative;
+        z-index: 1000;
+    }
+
+    /* Full-width main content */
+    .main-content {
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: #f6f7f9;
+    }
+
+    /* Semua section full-width */
+    .hero-section,
+    .main-product,
+    .detail-section,
+    .benefits-section,
+    .usage-section {
+        width: 100%;
+        padding: 3rem 0;
+    }
+
+    /* Konten di dalam section */
+    .hero-content,
+    .detail-content,
+    .benefits-grid,
+    .usage-category,
+    .usage-item {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding-left: 40px;
+        padding-right: 40px;
+    }
+
+    /* Hero Section */
+    .hero-section {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 3rem 0;
+    }
+    .hero-divider {
+        flex: 1;
+        height: 2px;
+        background: #28a745;
+        margin: 0 1rem;
+    }
+    .hero-title {
+        font-size: 2rem;
+        font-weight: bold;
+        text-align: center;
+        letter-spacing: 1px;
+    }
+
+    /* ===== MAIN PRODUCT (gambar + deskripsi) ===== */
+    .main-product {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2.5rem;
+        align-items: center;
+        justify-content: center;
+        max-width: 1200px;
+        margin: 0 auto 3rem auto;
+        padding: 3rem 50px;
+        background: transparent; /* transparan */
+    }
+    .product-image-container {
+        flex: 1 1 400px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .product-image {
+        max-width: 100%;
+        height: auto;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .product-description {
+        flex: 1 1 400px;
+        font-size: 1.05rem;
+        line-height: 1.7;
+    }
+
+    .product-title {
+        font-weight: 700;
+        font-size: 1.5rem;
+        color: #28a745;
+        margin-bottom: 1rem;
+    }
+
+.order-btn, .order-btn-bottom {
+    background: linear-gradient(90deg, #2B8D4C 0%, #D5D44B 100%);
+    color: white;
+    border: none;
+    padding: 12px 35px;
+    cursor: pointer;
+    border-radius: 50px; 
+    margin-top: 15px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px rgba(43, 141, 76, 0.3);
+}
+
+.order-btn:hover, .order-btn-bottom:hover {
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(43, 141, 76, 0.4);
+}
+
+
+    /* ===== CARD WRAPPER UNTUK SECTION ===== */
+    .detail-section,
+    .benefits-section,
+    .usage-section {
+        background: #ffffff;
+        max-width: 1200px;
+        margin: 0 auto 3rem auto;
+        border-radius: 16px;
+        padding: 3rem 50px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    }
+
+    /* Section Title */
+    .section-title {
+        font-weight: 700;
+        font-size: 1.6rem;
+        color: #28a745;
+        text-align: center;
+        margin-bottom: 2rem;
+        letter-spacing: 0.5px;
+    }
+
+    .detail-content {
+        font-size: 1.05rem;
+        line-height: 1.7;
+        text-align: justify;
+    }
+
+    /* Benefits Grid */
+    .benefits-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 3rem;
+    }
+    .benefit-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 20px;
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        transition: 0.3s;
+    }
+    .benefit-card:hover {
+        background-color: #e9f9ed;
+        transform: translateY(-3px);
+    }
+    .benefit-icon {
+        font-size: 1.5rem;
+        color: #fff200ff;
+    }
+
+    /* Usage Section */
+    .usage-category {
+        margin-bottom: 2.5rem;
+    }
+    .usage-subtitle {
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+    .usage-item {
+        margin-bottom: 0.75rem;
+        line-height: 1.6;
+    }
+    .dosage {
+        font-weight: bold;
+        color: #28a745;
+    }
+
+    /* Responsiveness */
+    @media (max-width: 768px) {
+        .hero-title {
+            font-size: 1.5rem;
         }
-
-        .produk-title-line {
-            font-family: 'Poppins', sans-serif;
-            font-weight: 700;
-            font-size: 2.8rem;
-            letter-spacing: 1px;
-            color: #1B5930;
-            margin: 0;
-            text-transform: uppercase;
-        }
-
-        .product-card {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            border: 1px solid #e0e0e0;
-            border-radius: 15px;
-            overflow: hidden;
-            background: #fff;
-            height: 100%;
-            display: flex;
+        .main-product {
             flex-direction: column;
+            text-align: center;
+            padding: 2rem 25px;
         }
-
-        .product-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 12px 24px rgba(27, 89, 48, 0.15) !important;
-        }
-
-        .product-image-wrapper {
-            position: relative;
-            width: 100%;
-            padding-top: 100%;
-            overflow: hidden;
-            background: #f8f9fa;
-        }
-
-        .product-image {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            padding: 1rem;
-            transition: transform 0.3s ease;
-        }
-
-        .product-card:hover .product-image {
-            transform: scale(1.05);
-        }
-
-        .product-content {
-            padding: 1.5rem;
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .product-name {
-            font-weight: 600;
-            font-size: 1.1rem;
-            letter-spacing: 0.3px;
-            color: #333;
-            margin-bottom: 0.5rem;
-        }
-
-        .product-category {
-            font-size: 0.85rem;
-            color: #666;
-            margin-bottom: 0.5rem;
-        }
-
         .product-description {
-            font-size: 0.9rem;
-            color: #777;
-            margin-bottom: 1rem;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
+            padding-top: 1rem;
         }
-
-        .product-badges {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.3rem;
-            margin-bottom: 1rem;
+        .benefits-grid {
+            gap: 1rem;
         }
-
-        .badge-custom {
-            font-size: 0.7rem;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-weight: 600;
+        .detail-section,
+        .benefits-section,
+        .usage-section {
+            padding: 2rem 25px;
         }
-
-        .product-price {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: #1B5930;
-            margin-bottom: 1rem;
-        }
-
-        .btn-selengkapnya {
-            font-weight: 600;
-            font-size: 0.95rem;
-            letter-spacing: 0.2px;
-            text-decoration: none;
-            display: inline-block;
-            padding: 0.5rem 1.5rem;
-            background: linear-gradient(90deg, #2B8D4C 0%, #D5D44B 100%);
-            color: white !important;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-            text-align: center;
-            margin-top: auto;
-        }
-
-        .btn-selengkapnya:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(43, 141, 76, 0.3);
-            text-decoration: none;
-        }
-
-        /* Filter Section */
-        .filter-section {
-            background: #f8f9fa;
-            padding: 2rem;
-            border-radius: 15px;
-            margin-bottom: 2rem;
-        }
-
-        .search-box {
-            position: relative;
-            flex: 1;
-            max-width: 500px;
-        }
-
-        .search-box input {
-            width: 100%;
-            padding: 0.75rem 1rem 0.75rem 3rem;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 0.95rem;
-        }
-
-        .search-box i {
-            position: absolute;
-            left: 1rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #666;
-        }
-
-        .no-products {
-            text-align: center;
-            padding: 4rem 2rem;
-        }
-
-        .no-products i {
-            font-size: 4rem;
-            color: #ccc;
-            margin-bottom: 1rem;
-        }
-
-        @media (max-width: 768px) {
-            .produk-title-line { font-size: 2rem; }
-            .product-name { font-size: 1rem; }
-        }
+    }
     </style>
     
 </head>
@@ -312,6 +1092,8 @@ $kategori_result = mysqli_query($conn, $kategori_query);
             <?php endif; ?>
         </div>
 
+        <br></br>
+
         <!-- Products Grid -->
         <div class="row g-4 pb-5">
             <?php if ($result && mysqli_num_rows($result) > 0): ?>
@@ -319,52 +1101,20 @@ $kategori_result = mysqli_query($conn, $kategori_query);
                     <div class="col-lg-4 col-md-6 col-sm-12">
                         <div class="product-card">
                             <div class="product-image-wrapper">
-                                <img src="<?= $base_url ?>asset/img/<?= htmlspecialchars($product['gambar_kecil']) ?>" 
+                                <img src="<?= $base_url ?>asset/img/<?= htmlspecialchars($product['gambar']) ?>" 
                                      alt="<?= htmlspecialchars($product['nama']) ?>" 
                                      class="product-image"
                                      onerror="this.src='<?= $base_url ?>asset/img/placeholder.png'">
                             </div>
                             <div class="product-content">
                                 <h5 class="product-name"><?= htmlspecialchars($product['nama']) ?></h5>
-                                <p class="product-category">
-                                    <i class="bi bi-tag"></i> <?= htmlspecialchars($product['kategori']) ?>
-                                </p>
                                 
-                                <?php if (!empty($product['deskripsi'])): ?>
-                                    <p class="product-description">
-                                        <?= htmlspecialchars($product['deskripsi']) ?>
-                                    </p>
-                                <?php endif; ?>
 
-                                <?php if (!empty($product['atribut'])): ?>
-                                    <div class="product-badges">
-                                        <?php 
-                                        $atribut_array = explode(' ', $product['atribut']);
-                                        foreach ($atribut_array as $atribut):
-                                            $badge_class = '';
-                                            switch($atribut) {
-                                                case 'Baru': $badge_class = 'bg-primary'; break;
-                                                case 'Laris': $badge_class = 'bg-warning text-dark'; break;
-                                                case 'Promo': $badge_class = 'bg-success'; break;
-                                                case 'Bonus': $badge_class = 'bg-info text-dark'; break;
-                                                case 'Habis': $badge_class = 'bg-danger'; break;
-                                                default: $badge_class = 'bg-secondary';
-                                            }
-                                        ?>
-                                            <span class="badge badge-custom <?= $badge_class ?>">
-                                                <?= htmlspecialchars($atribut) ?>
-                                            </span>
-                                        <?php endforeach; ?>
-                                    </div>
-                                <?php endif; ?>
-
-                                <div class="product-price">
-                                    Rp <?= number_format($product['harga'], 0, ',', '.') ?>
-                                </div>
+                                
 
                                 <a href="<?= $base_url ?>page/detail_produk.php?id=<?= $product['id'] ?>" 
                                    class="btn-selengkapnya">
-                                    Selengkapnya <i class="bi bi-arrow-right"></i>
+                                    Selengkapnya 
                                 </a>
                             </div>
                         </div>
