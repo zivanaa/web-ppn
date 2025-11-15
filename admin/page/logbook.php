@@ -1,5 +1,77 @@
 <?php
+// admin/page/logbook.php - BACKEND INTEGRATION ONLY (Frontend tetap sama)
 require_once __DIR__ . '/../auth_check.php';
+require_once __DIR__ . '/../../config/koneksi.php';
+
+// Handle delete action
+if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])) {
+    $id = intval($_GET['id']);
+    
+    $stmt = $conn->prepare("DELETE FROM logbook WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    
+    if ($stmt->execute()) {
+        $_SESSION['success_message'] = "Logbook berhasil dihapus!";
+    } else {
+        $_SESSION['error_message'] = "Gagal menghapus logbook!";
+    }
+    
+    header("Location: logbook.php");
+    exit;
+}
+
+// Get logbook data from database
+$query = "SELECT * FROM logbook ORDER BY tanggal DESC LIMIT 50";
+$result = mysqli_query($conn, $query);
+
+// Get statistics
+$stats_query = "SELECT 
+    COUNT(*) as total_transaksi,
+    SUM(jumlah_total) as total_pendapatan,
+    SUM(CASE WHEN MONTH(tanggal) = MONTH(CURRENT_DATE()) AND YEAR(tanggal) = YEAR(CURRENT_DATE()) THEN jumlah_total ELSE 0 END) as pendapatan_bulan_ini
+FROM logbook";
+$stats_result = mysqli_query($conn, $stats_query);
+$stats = mysqli_fetch_assoc($stats_result);
+
+// Get monthly chart data (last 6 months)
+$chart_query = "SELECT 
+    DATE_FORMAT(tanggal, '%Y-%m') as bulan,
+    SUM(jumlah_total) as total
+FROM logbook 
+WHERE tanggal >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
+GROUP BY DATE_FORMAT(tanggal, '%Y-%m')
+ORDER BY bulan";
+$chart_result = mysqli_query($conn, $chart_query);
+$chart_data = [];
+while ($row = mysqli_fetch_assoc($chart_result)) {
+    $chart_data[] = $row;
+}
+
+// Get product sales data
+$product_query = "SELECT produk_json FROM logbook";
+$product_result = mysqli_query($conn, $product_query);
+$product_stats = [];
+
+while ($row = mysqli_fetch_assoc($product_result)) {
+    $products = json_decode($row['produk_json'], true);
+    if (is_array($products)) {
+        foreach ($products as $product) {
+            $nama = $product['nama'] ?? 'Unknown';
+            $jumlah = $product['jumlah'] ?? 0;
+            
+            if (!isset($product_stats[$nama])) {
+                $product_stats[$nama] = 0;
+            }
+            $product_stats[$nama] += $jumlah;
+        }
+    }
+}
+
+// Prepare chart labels and data
+$chart_labels = json_encode(array_column($chart_data, 'bulan'));
+$chart_values = json_encode(array_column($chart_data, 'total'));
+$product_labels = json_encode(array_keys($product_stats));
+$product_values = json_encode(array_values($product_stats));
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -21,6 +93,21 @@ require_once __DIR__ . '/../auth_check.php';
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   
+  <style>
+    .alert { 
+      position: fixed; 
+      top: 80px; 
+      right: 20px; 
+      z-index: 9999; 
+      min-width: 300px;
+      animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateX(400px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+  </style>
 </head>
 
 <body>
@@ -28,6 +115,22 @@ require_once __DIR__ . '/../auth_check.php';
     <?php include('../template/sidebar.php'); ?>
 
     <div class="main w-100">
+      <?php if (isset($_SESSION['success_message'])): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+          <?= htmlspecialchars($_SESSION['success_message']) ?>
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['success_message']); ?>
+      <?php endif; ?>
+      
+      <?php if (isset($_SESSION['error_message'])): ?>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+          <?= htmlspecialchars($_SESSION['error_message']) ?>
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['error_message']); ?>
+      <?php endif; ?>
+
       <!-- Header -->
       <div class="header-section">Logbook</div>
 
@@ -41,19 +144,19 @@ require_once __DIR__ . '/../auth_check.php';
         <div class="col-md-2 col-lg-3">
           <div class="card-stat center">
             <p class="label">Produk Terjual</p>
-            <h3>4000</h3>
+            <h3><?= number_format(array_sum($product_stats)) ?></h3>
           </div>
         </div>
         <div class="col-md-3 col-lg-3">
           <div class="card-stat center">
             <p class="label">Pendapatan Bulan Ini</p>
-            <h3>Rp. 2xx.xxx.x</h3>
+            <h3>Rp. <?= number_format($stats['pendapatan_bulan_ini'] ?? 0, 0, ',', '.') ?></h3>
           </div>
         </div>
         <div class="col-md-3 col-lg-3">
           <div class="card-stat center">
             <p class="label">Pendapatan Total</p>
-            <h3>Rp. 2xx.xxx.x</h3>
+            <h3>Rp. <?= number_format($stats['total_pendapatan'] ?? 0, 0, ',', '.') ?></h3>
           </div>
         </div>
       </div>
@@ -63,12 +166,16 @@ require_once __DIR__ . '/../auth_check.php';
         <div class="d-flex gap-2">
           <div class="search-box">
             <i class="bi bi-search"></i>
-            <input type="text" placeholder="Cari logbook...">
+            <input type="text" placeholder="Cari logbook..." id="searchInput">
           </div>
-          <button class="btn-filter"><i class="bi bi-funnel"></i></button>
+          <button class="btn-filter" data-bs-toggle="modal" data-bs-target="#filterModal">
+            <i class="bi bi-funnel"></i>
+          </button>
           <button class="btn-sort"><i class="bi bi-sort-down"></i></button>
         </div>
-        <button class="btn-add"><i class="bi bi-plus"></i></button>
+        <button class="btn-add" data-bs-toggle="modal" data-bs-target="#logbookModal" onclick="resetForm()">
+          <i class="bi bi-plus"></i>
+        </button>
       </div>
 
       <!-- Table -->
@@ -80,9 +187,7 @@ require_once __DIR__ . '/../auth_check.php';
                 <th>Tanggal</th>
                 <th>Koordinator</th>
                 <th>Alamat</th>
-                <th>TNA</th>
-                <th>TNH</th>
-                <th>TNS</th>
+                <th>Produk</th>
                 <th>Cash/DP</th>
                 <th>1-Minggu</th>
                 <th>1-Bulan</th>
@@ -94,47 +199,48 @@ require_once __DIR__ . '/../auth_check.php';
                 <th>Aksi</th>
               </tr>
             </thead>
-            <tbody>
-              <tr>
-                <td>20/10/2025</td>
-                <td>Fauzan</td>
-                <td>Purwokerto Selatan, Jalan Kucing</td>
-                <td>3</td>
-                <td>3</td>
-                <td></td>
-                <td>250.000</td>
-                <td>200.000</td>
-                <td>200.000</td>
-                <td>450.000</td>
-                <td>Juned</td>
-                <td>Kohar</td>
-                <td>45.000</td>
-                <td>Lunas</td>
-                <td>
-                  <button class="btn btn-danger btn-sm"><i class="bi bi-trash"></i></button>
-                  <button class="btn btn-warning btn-sm text-white"><i class="bi bi-pencil"></i></button>
-                </td>
-              </tr>
-              <tr>
-                <td>19/10/2025</td>
-                <td>Chandra</td>
-                <td>Tegal Barat, Jalanin dulu</td>
-                <td></td>
-                <td>2</td>
-                <td></td>
-                <td>50.000</td>
-                <td>50.000</td>
-                <td>50.000</td>
-                <td>100.000</td>
-                <td>Budi</td>
-                <td>Kohar</td>
-                <td>10.000</td>
-                <td>Lunas</td>
-                <td>
-                  <button class="btn btn-danger btn-sm"><i class="bi bi-trash"></i></button>
-                  <button class="btn btn-warning btn-sm text-white"><i class="bi bi-pencil"></i></button>
-                </td>
-              </tr>
+            <tbody id="logbookTableBody">
+              <?php if ($result && mysqli_num_rows($result) > 0): ?>
+                <?php while ($row = mysqli_fetch_assoc($result)): ?>
+                  <tr>
+                    <td><?= date('d/m/Y', strtotime($row['tanggal'])) ?></td>
+                    <td><?= htmlspecialchars($row['koordinator']) ?></td>
+                    <td><?= htmlspecialchars($row['alamat']) ?></td>
+                    <td>
+                      <?php 
+                      $products = json_decode($row['produk_json'], true);
+                      if (is_array($products)):
+                        foreach ($products as $p):
+                          echo htmlspecialchars($p['nama']) . ': ' . $p['jumlah'] . '<br>';
+                        endforeach;
+                      endif;
+                      ?>
+                    </td>
+                    <td><?= number_format($row['cash_dp'], 0, ',', '.') ?></td>
+                    <td><?= number_format($row['satu_minggu'], 0, ',', '.') ?></td>
+                    <td><?= number_format($row['satu_bulan'], 0, ',', '.') ?></td>
+                    <td><?= number_format($row['jumlah_total'], 0, ',', '.') ?></td>
+                    <td><?= htmlspecialchars($row['presenter'] ?? '-') ?></td>
+                    <td><?= htmlspecialchars($row['marketing'] ?? '-') ?></td>
+                    <td><?= number_format($row['komisi'], 0, ',', '.') ?></td>
+                    <td><?= htmlspecialchars($row['keterangan']) ?></td>
+                    <td>
+                      <button class="btn btn-danger btn-sm" onclick="deleteLogbook(<?= $row['id'] ?>)">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                      <button class="btn btn-warning btn-sm text-white" onclick="editLogbook(<?= $row['id'] ?>)">
+                        <i class="bi bi-pencil"></i>
+                      </button>
+                    </td>
+                  </tr>
+                <?php endwhile; ?>
+              <?php else: ?>
+                <tr>
+                  <td colspan="13" class="text-center py-4">
+                    <p class="text-muted">Tidak ada data logbook</p>
+                  </td>
+                </tr>
+              <?php endif; ?>
             </tbody>
           </table>
         </div>
@@ -146,9 +252,10 @@ require_once __DIR__ . '/../auth_check.php';
         <button class="btn-page active">1</button>
         <button class="btn-page nav"><i class="bi bi-chevron-right"></i></button>
       </div>
-    </div> <!-- end .main -->
+    </div>
+  </div>
 
-   <!-- ================== MODAL ANALITIK ================== -->
+<!-- ================== MODAL ANALITIK ================== -->
 <div class="modal fade" id="analitikModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content p-4">
@@ -210,7 +317,7 @@ require_once __DIR__ . '/../auth_check.php';
         <label class="fw-semibold mb-1">Tanggal Transaksi</label>
         <div class="d-flex gap-2">
           <input type="date" class="form-control border-success mb-3">
-          <input type="date"class="form-control border-success mb-3">
+          <input type="date" class="form-control border-success mb-3">
         </div>
 
         <div class="d-flex justify-content-between mt-4">
@@ -227,265 +334,81 @@ require_once __DIR__ . '/../auth_check.php';
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content p-4">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <div class="d-flex align-items-center gap-2">
-          <img src="/WEB_PPN/asset/img/Logo.png" alt="Logo" width="90">
-          <h5 class="fw-semibold m-0">Logbook</h5>
-        </div>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-
-      <div class="modal-body">
-        <label>Tanggal Transaksi</label>
-        <input type="date" class="form-control mb-2">
-
-        <label>Alamat</label>
-        <input type="text" class="form-control mb-2" placeholder="Masukkan alamat">
-
-        <div id="produkContainer">
-          <div class="d-flex gap-2 align-items-end mb-2 produk-item">
-            <div class="flex-fill">
-              <label>Nama Produk</label>
-              <input type="text" class="form-control" placeholder="Masukkan nama produk">
-            </div>
-            <div class="flex-fill">
-              <label>Jumlah</label>
-              <input type="number" class="form-control" placeholder="Masukkan jumlah">
-            </div>
+        <div class="d-flex align-items-center mb-4">
+          <img src="/WEB_PPN/asset/img/Logo.png" alt="Logo" style="height: 40px;">
+          <div class="ms-3" style="border-left: 3px solid #333; padding-left: 15px;">
+            <h4 class="mb-0 fw-bold" id="modalTitle">Logbook</h4>
           </div>
         </div>
-
-        <!-- Tombol tambah produk di tengah -->
-        <div class="text-center">
-          <button id="btnTambahProduk" class="gradient-btn btn-sm mb-4 px-3 py-1">
-            + Tambah Produk
-          </button>
-        </div>
-
-        <label>Koordinator</label>
-        <input type="text" class="form-control mb-2" placeholder="Masukkan nama koordinator">
-
-        <label>Cash/DP</label>
-        <input type="number" class="form-control mb-2" placeholder="Masukkan nominal">
-
-        <label>1-Minggu</label>
-        <input type="number" class="form-control mb-2" placeholder="Masukkan nominal">
-
-        <label>1-Bulan</label>
-        <input type="number" class="form-control mb-2" placeholder="Masukkan nominal">
-
-        <label>Jumlah Total</label>
-        <input type="number" class="form-control mb-2" placeholder="Nominal total">
-
-        <label>Presenter</label>
-        <input type="text" class="form-control mb-2" placeholder="Masukkan nama presenter">
-
-        <label>Marketing</label>
-        <input type="text" class="form-control mb-2" placeholder="Masukkan nama marketing">
-
-        <label>Komisi</label>
-        <input type="number" class="form-control mb-3" placeholder="Masukkan nominal komisi">
-
-        <label>Keterangan</label>
-        <select class="form-select mb-3">
-          <option>Lunas</option>
-          <option>Belum Lunas</option>
-        </select>
-
-        <button id="btnSimpanLogbook" class="gradient-btn w-100 py-2">Simpan</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-<!-- MODAL FILTER LOGBOOK -->
-<div class="modal fade" id="filterModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content p-4">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <div class="d-flex align-items-center gap-2">
-          <img src="/WEB_PPN/asset/img/Logo.png" alt="Logo" width="90">
-          <h5 class="fw-semibold m-0">Filter Logbook</h5>
-        </div>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body">
-        <label>Keterangan</label>
-        <select id="filterKeterangan" class="form-select mb-2">
-          <option value="">Pilih</option>
-          <option>Lunas</option>
-          <option>Belum Lunas</option>
-        </select>
 
-        <label>Nama Koordinator</label>
-        <input type="text" class="form-control mb-2" placeholder="Masukkan nama koordinator">
+      <form id="logbookForm" method="POST">
+        <input type="hidden" name="id" id="logbookId">
+        <input type="hidden" name="action" id="formAction" value="tambah">
 
-        <label>Nama Presenter</label>
-        <input type="text" class="form-control mb-2" placeholder="Masukkan nama presenter">
-
-        <label>Nama Marketing</label>
-        <input type="text" class="form-control mb-2" placeholder="Masukkan nama marketing">
-
-        <label>Alamat</label>
-        <input type="text" class="form-control mb-2" placeholder="Masukkan alamat">
-
-        <label>Tanggal Transaksi</label>
-        <div class="d-flex gap-2">
-          <input type="date" class="form-control">
-          <input type="date" class="form-control">
-        </div>
-
-        <div class="d-flex justify-content-between mt-4">
-          <button id="btnTerapkanFilter" class="gradient-btn px-4 py-2">Terapkan</button>
-          <button id="btnBersihkanFilter" class="outline-btn px-4 py-2">Bersihkan</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL ADD/EDIT LOGBOOK -->
-<div class="modal fade" id="logbookModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content p-4">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <div class="d-flex align-items-center mb-4">
-                <img src="/WEB_PPN/asset/img/Logo.png" alt="Logo" style="height: 40px;">
-            <div class="ms-3" style="border-left: 3px solid #333; padding-left: 15px;">
-                <h4 class="mb-0 fw-bold">Logbook</h4>
-            </div>
-        </div>
-      </div>
-
-      <div class="modal-body">
         <label class="fw-semibold mb-1">Tanggal Transaksi</label>
-        <input type="date" class="form-control border-success mb-3" >
+        <input type="date" class="form-control border-success mb-3" name="tanggal" id="tanggal" required>
 
         <label class="fw-semibold mb-1">Alamat</label>
-        <input type="text" class="form-control border-success mb-3" placeholder="Masukkan alamat">
+        <input type="text" class="form-control border-success mb-3" name="alamat" id="alamat" placeholder="Masukkan alamat" required>
 
         <div id="produkContainer">
           <div class="d-flex gap-2 align-items-end mb-2 produk-item">
             <div class="flex-fill">
               <label class="fw-semibold mb-1">Nama Produk</label>
-              <input type="text" class="form-control border-success mb-3" placeholder="Masukkan nama produk">
+              <input type="text" class="form-control border-success mb-3 produk-nama" name="produk_nama[]" placeholder="Masukkan nama produk" required>
             </div>
             <div class="flex-fill">
               <label class="fw-semibold mb-1">Jumlah</label>
-              <input type="number" class="form-control border-success mb-3"  placeholder="Masukkan jumlah">
+              <input type="number" class="form-control border-success mb-3 produk-jumlah" name="produk_jumlah[]" placeholder="Masukkan jumlah" required>
             </div>
           </div>
         </div>
 
-        <button id="btnTambahProduk" class="btn btn-success btn-sm mb-3">
-          + Tambah Produk
-        </button>
+        <div class="text-center">
+          <button type="button" id="btnTambahProduk" class="gradient-btn btn-sm mb-4 px-3 py-1">
+            + Tambah Produk
+          </button>
+        </div>
 
         <label class="fw-semibold mb-1">Koordinator</label>
-        <input type="text" class="form-control border-success mb-3"  placeholder="Masukkan nama koordinator">
+        <input type="text" class="form-control border-success mb-3" name="koordinator" id="koordinator" placeholder="Masukkan nama koordinator" required>
 
         <label class="fw-semibold mb-1">Cash/DP</label>
-        <input type="number" class="form-control border-success mb-3"  placeholder="Masukkan nominal">
+        <input type="number" class="form-control border-success mb-3 payment-input" name="cash_dp" id="cash_dp" placeholder="Masukkan nominal" value="0">
 
         <label class="fw-semibold mb-1">1-Minggu</label>
-        <input type="number" class="form-control border-success mb-3"  placeholder="Masukkan nominal">
+        <input type="number" class="form-control border-success mb-3 payment-input" name="satu_minggu" id="satu_minggu" placeholder="Masukkan nominal" value="0">
 
         <label class="fw-semibold mb-1">1-Bulan</label>
-        <input type="number" class="form-control border-success mb-3"  placeholder="Masukkan nominal">
+        <input type="number" class="form-control border-success mb-3 payment-input" name="satu_bulan" id="satu_bulan" placeholder="Masukkan nominal" value="0">
 
         <label class="fw-semibold mb-1">Jumlah Total</label>
-        <input type="number" class="form-control border-success mb-3"  placeholder="Nominal total">
+        <input type="number" class="form-control border-success mb-3" name="jumlah_total" id="jumlah_total" placeholder="Nominal total" readonly required>
 
-        <label class="fw-semibold mb-1" >Presenter</label>
-        <input type="text" class="form-control border-success mb-3" placeholder="Masukkan nama presenter">
+        <label class="fw-semibold mb-1">Presenter</label>
+        <input type="text" class="form-control border-success mb-3" name="presenter" id="presenter" placeholder="Masukkan nama presenter">
 
         <label class="fw-semibold mb-1">Marketing</label>
-        <input type="text" class="form-control border-success mb-3"  placeholder="Masukkan nama marketing">
+        <input type="text" class="form-control border-success mb-3" name="marketing" id="marketing" placeholder="Masukkan nama marketing">
 
         <label class="fw-semibold mb-1">Komisi</label>
-        <input type="number" class="form-control border-success mb-3"  placeholder="Masukkan nominal komisi">
+        <input type="number" class="form-control border-success mb-3" name="komisi" id="komisi" placeholder="Masukkan nominal komisi" value="0">
 
         <label class="fw-semibold mb-1">Keterangan</label>
-        <select class="form-control border-success mb-3" >
+        <select class="form-control border-success mb-3" name="keterangan" id="keterangan" required>
           <option>Lunas</option>
           <option>Belum Lunas</option>
         </select>
 
-        <button class="btn btn-success w-100">Simpan</button>
-      </div>
+        <button type="submit" class="btn btn-success w-100">Simpan</button>
+      </form>
     </div>
   </div>
 </div>
 
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-const logbookModal = new bootstrap.Modal(document.getElementById('logbookModal'));
-const filterModal = new bootstrap.Modal(document.getElementById('filterModal'));
-const analitikModal = new bootstrap.Modal(document.getElementById('analitikModal'));
-
-// Tombol tambah dan edit
-document.querySelector('.btn-add').addEventListener('click', () => logbookModal.show());
-document.querySelectorAll('.btn-warning').forEach(btn => btn.addEventListener('click', () => logbookModal.show()));
-
-// Tombol filter
-document.querySelector('.btn-filter').addEventListener('click', () => filterModal.show());
-
-// Tambah produk baru di form
-document.getElementById('btnTambahProduk').addEventListener('click', () => {
-  const container = document.getElementById('produkContainer');
-  const div = document.createElement('div');
-  div.classList.add('d-flex','gap-2','align-items-end','mb-2','produk-item');
-  div.innerHTML = `
-    <div class="flex-fill">
-      <label>Nama Produk</label>
-      <input type="text" class="form-control" placeholder="Masukkan nama produk">
-    </div>
-    <div class="flex-fill">
-      <label>Jumlah</label>
-      <input type="number" class="form-control" placeholder="Masukkan jumlah">
-    </div>
-  `;
-  container.appendChild(div);
-});
-
-// === Ubah tulisan "Rekap Bulanan" jadi tombol kecil kuning ===
-const chartCard = document.querySelector('.card-stat');
-const labelOld = chartCard.querySelector('.chart-label');
-if (labelOld) labelOld.remove(); // hapus tulisan lama
-
-const searchBtn = document.createElement('button');
-searchBtn.className = 'btn-analitik-btn';
-searchBtn.innerHTML = '<i class="bi bi-search"></i>';
-chartCard.style.position = 'relative';
-chartCard.appendChild(searchBtn);
-searchBtn.addEventListener('click', () => analitikModal.show());
-
-// Chart di modal analitik
-const ctxA = document.getElementById('chartAnalitik');
-new Chart(ctxA, {
-  type: 'bar',
-  data: {
-    labels: ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'],
-    datasets: [{
-      label: 'TNH',
-      data: [10,20,25,35,30,50,20,15,10,45,65,30],
-      backgroundColor: '#8C8CFF'
-    }]
-  },
-  options: {
-    responsive: true,
-    scales: { y: { beginAtZero: true } }
-  }
-});
-</script>
-
-
-
-
-  </div> <!-- end .d-flex -->
-
-  <!-- MODAL HAPUS -->
+<!-- MODAL HAPUS -->
 <div class="modal fade" id="hapusModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content p-4 rounded-4 text-center">
@@ -509,116 +432,194 @@ new Chart(ctxA, {
   </div>
 </div>
 
-
-  <!-- Chart Script -->
-  <script>
-    const ctx = document.getElementById('chartProduk');
-    new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: ['Oktober'],
-        datasets: [
-          { label: 'TNS', data: [25], backgroundColor: '#8C8CFF', borderRadius: 5, barThickness: 30 },
-          { label: 'TNT', data: [30], backgroundColor: '#FFB2A8', borderRadius: 5, barThickness: 30 },
-          { label: 'TNH', data: [10], backgroundColor: '#74D4E0', borderRadius: 5, barThickness: 30 },
-          { label: 'TNB', data: [40], backgroundColor: '#FFC56D', borderRadius: 5, barThickness: 30 }
-        ]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: {
-            display: true,
-            position: 'bottom',
-            labels: {
-              usePointStyle: true,
-              pointStyle: 'circle',
-              boxWidth: 8,   // lebar buletan legend (default 40)
-              boxHeight: 8, 
-              padding: 10,
-              color: '#555',
-              font: { size: 13 }
-            }
-          },
-          tooltip: {
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            titleColor: '#fff',
-            bodyColor: '#fff',
-            cornerRadius: 6
-          }
-        },
-        scales: {
-          x: { grid: { display: false }, ticks: { color: '#666', font: { size: 14 } } },
-          y: { beginAtZero: true, grid: { color: '#f2f2f2' }, ticks: { stepSize: 5, color: '#666' } }
-        },
-        layout: { padding: 10 }
-      }
-    });
-
-    const hapusModal = new bootstrap.Modal(document.getElementById('hapusModal'));
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const logbookModal = new bootstrap.Modal(document.getElementById('logbookModal'));
+const filterModal = new bootstrap.Modal(document.getElementById('filterModal'));
+const hapusModal = new bootstrap.Modal(document.getElementById('hapusModal'));
 const notifModal = new bootstrap.Modal(document.getElementById('notifModal'));
 const notifIcon = document.getElementById('notifIcon');
 const notifText = document.getElementById('notifText');
 
-// Tombol Hapus Logbook
-document.querySelectorAll('.btn-danger').forEach(btn => {
-  btn.addEventListener('click', () => {
-    hapusModal.show();
-  });
-});
+let deleteId = null;
 
-// Konfirmasi Hapus
-document.getElementById('btnKonfirmasiHapusLogbook').addEventListener('click', () => {
-  hapusModal.hide();
-  setTimeout(() => {
-    notifIcon.className = 'bi bi-check-circle-fill text-success fs-1 mb-3';
-    notifText.textContent = "Logbook berhasil dihapus!";
-    notifModal.show();
-    setTimeout(() => notifModal.hide(), 1500);
-  }, 400);
-});
+// Chart Product
+const ctx = document.getElementById('chartProduk');
+const chartData = <?= $product_values ?>;
+const chartLabels = <?= $product_labels ?>;
 
-// Filter Buttons (untuk modal filter logbook)
-document.getElementById('btnTerapkanFilter').addEventListener('click', () => {
-  filterModal.hide();
-  setTimeout(() => {
-    notifIcon.className = 'bi bi-check-circle-fill text-success fs-1 mb-3';
-    notifText.textContent = "Filter diterapkan!";
-    notifModal.show();
-    setTimeout(() => notifModal.hide(), 1500);
-  }, 400);
-});
-
-document.getElementById('btnBersihkanFilter').addEventListener('click', () => {
-  document.getElementById('filterKeterangan').value = '';
-  notifIcon.className = 'bi bi-x-circle-fill text-warning fs-1 mb-3';
-  notifText.textContent = "Filter dibersihkan!";
-  notifModal.show();
-  setTimeout(() => notifModal.hide(), 1500);
-});
-
-// Tombol Simpan Logbook
-document.getElementById('btnSimpanLogbook').addEventListener('click', () => {
-  // Sembunyikan modal logbook
-  logbookModal.hide();
-
-  // Simulasi delay penyimpanan
-  setTimeout(() => {
-    const isSuccess = Math.random() > 0.3; // 70% chance berhasil
-
-    if (isSuccess) {
-      notifIcon.className = 'bi bi-check-circle-fill text-success fs-1 mb-3';
-      notifText.textContent = "Logbook berhasil disimpan!";
-    } else {
-      notifIcon.className = 'bi bi-x-circle-fill text-danger fs-1 mb-3';
-      notifText.textContent = "Gagal menyimpan logbook!";
+new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: chartLabels,
+    datasets: [{
+      label: 'Jumlah Terjual',
+      data: chartData,
+      backgroundColor: ['#8C8CFF', '#FFB2A8', '#74D4E0', '#FFC56D'],
+      borderRadius: 5,
+      barThickness: 30
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false }
+    },
+    scales: {
+      x: { grid: { display: false } },
+      y: { beginAtZero: true, grid: { color: '#f2f2f2' } }
     }
-
-    notifModal.show();
-    setTimeout(() => notifModal.hide(), 1600);
-  }, 400);
+  }
 });
 
-  </script>
+// Tambah produk
+document.getElementById('btnTambahProduk').addEventListener('click', function() {
+  const container = document.getElementById('produkContainer');
+  const newItem = container.querySelector('.produk-item').cloneNode(true);
+  newItem.querySelectorAll('input').forEach(el => el.value = '');
+  container.appendChild(newItem);
+});
+
+// Auto calculate total
+document.querySelectorAll('.payment-input').forEach(input => {
+  input.addEventListener('input', calculateTotal);
+});
+
+function calculateTotal() {
+  const cash = parseFloat(document.getElementById('cash_dp').value) || 0;
+  const minggu = parseFloat(document.getElementById('satu_minggu').value) || 0;
+  const bulan = parseFloat(document.getElementById('satu_bulan').value) || 0;
+  document.getElementById('jumlah_total').value = cash + minggu + bulan;
+}
+
+// Submit form
+document.getElementById('logbookForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  const formData = new FormData(this);
+  const action = document.getElementById('formAction').value;
+  const url = action === 'tambah' ? '../action/tambah_logbook.php' : '../action/ubah_logbook.php';
+  
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData
+    });
+    
+    const result = await response.json();
+    
+    logbookModal.hide();
+    
+    if (result.success) {
+      showNotif(true, result.message);
+      setTimeout(() => window.location.reload(), 1500);
+    } else {
+      showNotif(false, result.message);
+    }
+  } catch (error) {
+    showNotif(false, 'Error: ' + error.message);
+  }
+});
+
+// Edit logbook
+function editLogbook(id) {
+  fetch(`../action/get_logbook.php?id=${id}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        const d = data.data;
+        
+        document.getElementById('logbookId').value = d.id;
+        document.getElementById('formAction').value = 'edit';
+        document.getElementById('modalTitle').textContent = 'Edit Logbook';
+        document.getElementById('tanggal').value = d.tanggal;
+        document.getElementById('koordinator').value = d.koordinator;
+        document.getElementById('alamat').value = d.alamat;
+        document.getElementById('cash_dp').value = d.cash_dp;
+        document.getElementById('satu_minggu').value = d.satu_minggu;
+        document.getElementById('satu_bulan').value = d.satu_bulan;
+        document.getElementById('jumlah_total').value = d.jumlah_total;
+        document.getElementById('presenter').value = d.presenter || '';
+        document.getElementById('marketing').value = d.marketing || '';
+        document.getElementById('komisi').value = d.komisi;
+        document.getElementById('keterangan').value = d.keterangan;
+        
+        // Load products
+        const container = document.getElementById('produkContainer');
+        container.innerHTML = '';
+        d.products.forEach(p => {
+          const item = document.createElement('div');
+          item.className = 'd-flex gap-2 align-items-end mb-2 produk-item';
+          item.innerHTML = `
+            <div class="flex-fill">
+              <label class="fw-semibold mb-1">Nama Produk</label>
+              <input type="text" class="form-control border-success mb-3 produk-nama" name="produk_nama[]" value="${p.nama}" required>
+            </div>
+            <div class="flex-fill">
+              <label class="fw-semibold mb-1">Jumlah</label>
+              <input type="number" class="form-control border-success mb-3 produk-jumlah" name="produk_jumlah[]" value="${p.jumlah}" required>
+            </div>
+          `;
+          container.appendChild(item);
+        });
+        
+        logbookModal.show();
+      }
+    });
+}
+
+// Reset form
+function resetForm() {
+  document.getElementById('logbookForm').reset();
+  document.getElementById('logbookId').value = '';
+  document.getElementById('formAction').value = 'tambah';
+  document.getElementById('modalTitle').textContent = 'Tambah Logbook';
+  document.getElementById('tanggal').value = new Date().toISOString().split('T')[0];
+  
+  const container = document.getElementById('produkContainer');
+  const items = container.querySelectorAll('.produk-item');
+  items.forEach((item, index) => {
+    if (index > 0) item.remove();
+  });
+}
+
+// Delete logbook
+function deleteLogbook(id) {
+  deleteId = id;
+  hapusModal.show();
+}
+
+document.getElementById('btnKonfirmasiHapusLogbook').addEventListener('click', () => {
+  if (deleteId) {
+    window.location.href = `logbook.php?action=delete&id=${deleteId}`;
+  }
+});
+
+// Show notification
+function showNotif(success, message) {
+  if (success) {
+    notifIcon.className = 'bi bi-check-circle-fill text-success fs-1 mb-3';
+  } else {
+    notifIcon.className = 'bi bi-x-circle-fill text-danger fs-1 mb-3';
+  }
+  notifText.textContent = message;
+  notifModal.show();
+  setTimeout(() => notifModal.hide(), 2000);
+}
+
+// Auto-hide alerts
+setTimeout(() => {
+  document.querySelectorAll('.alert').forEach(alert => {
+    alert.classList.remove('show');
+  });
+}, 5000);
+
+// Set default date
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('tanggal').value = new Date().toISOString().split('T')[0];
+});
+</script>
+
 </body>
 </html>
