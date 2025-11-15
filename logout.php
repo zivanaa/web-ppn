@@ -6,5 +6,5 @@ session_start();
 // session_destroy();
 
 // Redirect ke halaman login
-header('Location: /WEB_PPN/index.php');
+header('Location: /WEB-PPN/index.php');
 exit;

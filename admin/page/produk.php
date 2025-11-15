@@ -1,3 +1,82 @@
+<?php
+// admin/page/produk.php - FIXED VERSION
+require_once __DIR__ . '/../auth_check.php';
+require_once __DIR__ . '/../../config/koneksi.php';
+
+// Handle delete action
+if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])) {
+    $id = intval($_GET['id']);
+    
+    // Get product data first to delete images
+    $stmt = $conn->prepare("SELECT gambar, gambar_kecil FROM produk WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($row = $result->fetch_assoc()) {
+        // Delete images
+        if (file_exists("../../asset/img/" . $row['gambar'])) {
+            unlink("../../asset/img/" . $row['gambar']);
+        }
+        if (file_exists("../../asset/img/" . $row['gambar_kecil'])) {
+            unlink("../../asset/img/" . $row['gambar_kecil']);
+        }
+        
+        // Delete from database
+        $delete_stmt = $conn->prepare("DELETE FROM produk WHERE id = ?");
+        $delete_stmt->bind_param("i", $id);
+        
+        if ($delete_stmt->execute()) {
+            $_SESSION['success_message'] = "Produk berhasil dihapus!";
+        } else {
+            $_SESSION['error_message'] = "Gagal menghapus produk!";
+        }
+    }
+    
+    header("Location: produk.php");
+    exit;
+}
+
+// Get all products
+$search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
+$kategori_filter = isset($_GET['kategori']) ? mysqli_real_escape_string($conn, $_GET['kategori']) : '';
+
+$where = [];
+$params = [];
+$types = '';
+
+if (!empty($search)) {
+    $where[] = "(nama LIKE ? OR deskripsi LIKE ?)";
+    $search_param = "%$search%";
+    $params[] = $search_param;
+    $params[] = $search_param;
+    $types .= 'ss';
+}
+
+if (!empty($kategori_filter)) {
+    $where[] = "kategori = ?";
+    $params[] = $kategori_filter;
+    $types .= 's';
+}
+
+$where_sql = !empty($where) ? "WHERE " . implode(' AND ', $where) : "";
+
+$query = "SELECT * FROM produk $where_sql ORDER BY tanggal DESC";
+
+if (!empty($params)) {
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $result = $stmt->get_result();
+} else {
+    $result = mysqli_query($conn, $query);
+}
+
+// Get unique categories for filter
+$kategori_query = "SELECT DISTINCT kategori FROM produk ORDER BY kategori";
+$kategori_result = mysqli_query($conn, $kategori_query);
+?>
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -5,220 +84,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Manajemen Produk - PPN</title>
   
-  <!-- Favicon -->
   <link href="/WEB_PPN/asset/img/LogoIco.ico" rel="icon">
-
-  <!-- Google Fonts - Poppins -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,600,700&display=swap" rel="stylesheet">
-
-  <!-- Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
-  <!-- Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-
-  <!-- Custom CSS -->
   <link rel="stylesheet" href="/WEB_PPN/asset/style/style_admin.css">
 
   <style>
-    /* === Global Poppins Font === */
-    * {
-      font-family: 'Poppins', sans-serif;
-    }
-
-    body {
-      font-family: 'Poppins', sans-serif;
-      font-weight: 400;
-    }
-
-    h1, h2, h3, h4, h5, h6 {
-      font-family: 'Poppins', sans-serif;
-      font-weight: 600;
-    }
-
-    p {
-      font-family: 'Poppins', sans-serif;
-      font-weight: 400;
-    }
-
-    button {
-      font-family: 'Poppins', sans-serif;
-      font-weight: 500;
-    }
-
-    span {
-      font-family: 'Poppins', sans-serif;
-      font-weight: 400;
-    }
-
-    label {
-      font-family: 'Poppins', sans-serif;
-      font-weight: 500;
-    }
-
-    input, textarea, select {
-      font-family: 'Poppins', sans-serif;
-      font-weight: 400;
-    }
-
-    .fw-semibold {
-      font-weight: 600 !important;
-    }
-
-    .fw-bold {
-      font-weight: 700 !important;
-    }
-
-    /* === Modal Styles === */
-    .modal-content {
-      border-radius: 20px;
-      border: none;
-      font-family: 'Poppins', sans-serif;
+    * { font-family: 'Poppins', sans-serif; }
+    body { font-weight: 400; }
+    h1, h2, h3, h4, h5, h6 { font-weight: 600; }
+    .fw-bold { font-weight: 700 !important; }
+    .fw-semibold { font-weight: 600 !important; }
+    
+    .alert { 
+      position: fixed; 
+      top: 80px; 
+      right: 20px; 
+      z-index: 9999; 
+      min-width: 300px;
+      animation: slideIn 0.3s ease;
     }
     
-    .modal-header {
-      border: none;
-      padding-bottom: 0;
-      font-family: 'Poppins', sans-serif;
+    @keyframes slideIn {
+      from { transform: translateX(400px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
     }
-
-    .modal-body input[type="text"],
-    .modal-body input[type="number"],
-    .modal-body textarea,
-    .modal-body select {
-      border: 1px solid #E3E3E3;
-      border-radius: 10px;
-      padding: 8px 12px;
-      font-size: 14px;
-      outline: none;
-      width: 100%;
-      font-family: 'Poppins', sans-serif;
-      font-weight: 400;
-    }
-
-    .modal-body label {
-      font-weight: 500;
-      margin-top: 10px;
-      font-family: 'Poppins', sans-serif;
-    }
-
-    .gradient-btn {
-      background: linear-gradient(90deg, #4E8E55 0%, #B3D134 100%);
-      border: none;
-      color: #fff;
-      border-radius: 10px;
-      font-weight: 600;
-      transition: 0.3s;
-      font-family: 'Poppins', sans-serif;
-    }
-
-    .gradient-btn:hover {
-      opacity: 0.9;
-    }
-
-    .outline-btn {
-      border: 2px solid #4E8E55;
-      color: #4E8E55;
-      border-radius: 10px;
-      font-weight: 600;
-      background: #fff;
-      transition: 0.3s;
-      font-family: 'Poppins', sans-serif;
-    }
-
-    .outline-btn:hover {
-      background: #4E8E55;
-      color: #fff;
-    }
-
-    .notif-card {
-      background: #fff;
-      animation: fadeScale 0.3s ease;
-      font-family: 'Poppins', sans-serif;
-    }
-
-    @keyframes fadeScale {
-      from {opacity: 0; transform: scale(0.9);}
-      to {opacity: 1; transform: scale(1);}
-    }
-
-    .shadow {
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-    }
-
-    .upload-box {
-      background: #F2F6F2;
-      border-radius: 15px;
-      height: 130px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      color: #A3A3A3;
-      font-size: 14px;
-      border: 1px dashed #C9C9C9;
-      font-family: 'Poppins', sans-serif;
-    }
-
-    .switch {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-top: 10px;
-      font-family: 'Poppins', sans-serif;
-    }
-
-    /* Checkbox kecil */
-    .form-check-input {
-      width: 16px;
-      height: 16px;
-    }
-
-    .form-check-label {
-      margin-bottom: 0;
-      font-family: 'Poppins', sans-serif;
-      font-weight: 500;
-    }
-
-    .header-section {
-      font-family: 'Poppins', sans-serif;
-      font-weight: 600;
-    }
-
-    .search-box {
-      font-family: 'Poppins', sans-serif;
-    }
-
-    .search-box input {
-      font-family: 'Poppins', sans-serif;
-      font-weight: 400;
-    }
-
-    .search-box input::placeholder {
-      font-family: 'Poppins', sans-serif;
-      font-weight: 400;
-    }
-
-    .product-card {
-      font-family: 'Poppins', sans-serif;
-    }
-
-    .product-info span {
-      font-family: 'Poppins', sans-serif;
-      font-weight: 600;
-    }
-
-    .btn {
-      font-family: 'Poppins', sans-serif;
-      font-weight: 500;
-    }
-
-    .text-center {
-      font-family: 'Poppins', sans-serif;
-    }
-
   </style>
 </head>
 <body>
@@ -227,163 +118,217 @@
 
 <!-- MAIN CONTENT -->
 <div class="main">
+  <?php if (isset($_SESSION['success_message'])): ?>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+      <?= htmlspecialchars($_SESSION['success_message']) ?>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <?php unset($_SESSION['success_message']); ?>
+  <?php endif; ?>
+  
+  <?php if (isset($_SESSION['error_message'])): ?>
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+      <?= htmlspecialchars($_SESSION['error_message']) ?>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <?php unset($_SESSION['error_message']); ?>
+  <?php endif; ?>
+
   <div class="header-section">Manajemen Produk</div>
 
   <!-- SEARCH BAR & BUTTONS -->
   <div class="search-bar-top">
     <div class="left-col">
-      <div class="search-box">
-        <i class="bi bi-search"></i>
-        <input type="text" placeholder="Search">
-      </div>
-      <button id="btnFilter" class="search-btn" style="background-color: #4E8E55;"><i class="bi bi-funnel"></i></button>
+      <form method="GET" class="d-flex gap-2">
+        <div class="search-box">
+          <i class="bi bi-search"></i>
+          <input type="text" name="search" placeholder="Search" value="<?= htmlspecialchars($search) ?>">
+        </div>
+        <button type="submit" class="search-btn" style="background-color: #4E8E55;">
+          <i class="bi bi-search"></i>
+        </button>
+        <button type="button" id="btnFilter" class="search-btn" style="background-color: #4E8E55;">
+          <i class="bi bi-funnel"></i>
+        </button>
+      </form>
     </div>
     
     <div class="right-col">
-      <button id="btnTambah" class="search-btn" style="background-color: #4E8E55;"><i class="bi bi-plus"></i></button>
+      <button id="btnTambah" class="search-btn" style="background-color: #4E8E55;">
+        <i class="bi bi-plus"></i>
+      </button>
     </div>
   </div>
 
   <!-- PRODUCT LIST -->
-  <?php
-  $products = [
-    ["name" => "Maxi-D", "img" => "Produk1.png"],
-    ["name" => "TerraNusa Silika", "img" => "produk2.png"],
-    ["name" => "TeraNusa Probiotik", "img" => "produk3.png"],
-    ["name" => "TeraTusa Hama", "img" => "produk4.png"],
-    ["name" => "Maxi-B", "img" => "produk5.png"]
-  ];
-  
-  foreach ($products as $p) {
-    echo "
-    <div class='product-card'>
-      <div class='product-info'>
-        <img src='/WEB_PPN/asset/img/{$p['img']}' alt='{$p['name']}'>
-        <span class='fw-semibold'>{$p['name']}</span>
+  <?php if ($result && mysqli_num_rows($result) > 0): ?>
+    <?php while ($product = mysqli_fetch_assoc($result)): ?>
+      <div class='product-card'>
+        <div class='product-info'>
+          <img src='/WEB_PPN/asset/img/<?= htmlspecialchars($product['gambar_kecil']) ?>' 
+               alt='<?= htmlspecialchars($product['nama']) ?>'>
+          <div>
+            <span class='fw-semibold'><?= htmlspecialchars($product['nama']) ?></span>
+            <small class="d-block text-muted"><?= htmlspecialchars($product['kategori']) ?></small>
+            <small class="d-block">Stok: <?= htmlspecialchars($product['stok']) ?> | 
+            Rp <?= number_format($product['harga'], 0, ',', '.') ?></small>
+          </div>
+        </div>
+        <div class='action-btns'>
+          <button class='btn-delete' onclick="confirmDelete(<?= $product['id'] ?>)">
+            <i class='bi bi-trash'></i>
+          </button>
+          <button class='btn-edit' onclick="editProduct(<?= $product['id'] ?>)">
+            <i class='bi bi-pencil'></i>
+          </button>
+        </div>
       </div>
-      <div class='action-btns'>
-        <button class='btn-delete'><i class='bi bi-trash'></i></button>
-        <button class='btn-edit'><i class='bi bi-pencil'></i></button>
-      </div>
-    </div>";
-  }
-  ?>
-
-  <!-- PAGINATION -->
-  <div class="d-flex justify-content-center mt-4 gap-2">
-    <button class="btn btn-warning rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-      <i class="bi bi-chevron-left" style="color: white;"></i>
-    </button>
-    <button class="btn btn-success rounded-circle d-flex align-items-center justify-content-center fw-semibold text-white" style="width: 32px; height: 32px;">
-      1
-    </button>
-    <button class="btn btn-warning rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-      <i class="bi bi-chevron-right" style="color: white;"></i>
-    </button>
-  </div>
+    <?php endwhile; ?>
+  <?php else: ?>
+    <div class="text-center py-5">
+      <p class="text-muted">Tidak ada produk ditemukan</p>
+    </div>
+  <?php endif; ?>
 </div>
 
-
-<!-- ========================= MODALS ========================= -->
-
-<!-- MODAL TAMBAH PRODUK -->
+<!-- MODAL TAMBAH/EDIT PRODUK -->
 <div class="modal fade" id="produkModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content p-4">
       <div class="d-flex justify-content-between align-items-start mb-3">
         <div class="d-flex align-items-center gap-2">
-          <img src="../../asset/img/logo.png" alt="Logo" width="100">
+          <img src="/WEB_PPN/asset/img/logo.png" alt="Logo" width="100">
           <div class="vr" style="height: 35px; width: 2px; background-color: #000;"></div>
-          <h5 class="fw-bold mb-0">Produk</h5>
+          <h5 class="fw-bold mb-0" id="modalTitle">Tambah Produk</h5>
         </div>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
 
-      <div class="modal-body">
+      <form id="produkForm" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="id" id="produkId">
+        <input type="hidden" name="action" id="formAction" value="tambah">
+        
         <label class="fw-semibold mb-1">Kategori Produk</label>
-        <input type="text" class="form-control border-success mb-3" id="kategoriProduk" placeholder="Masukkan kategori produk">
+        <input type="text" class="form-control border-success mb-3" name="kategori" 
+               id="kategori" placeholder="Masukkan kategori produk" required>
 
         <label class="fw-semibold mb-1">Jenis Tanaman</label>
-        <input type="text" class="form-control border-success mb-3" id="jenisTanaman" placeholder="Masukkan jenis tanaman. Pisahkan dengan ';' (Eg: Jagung;Padi)">
+        <input type="text" class="form-control border-success mb-3" name="jenis_tanaman" 
+               id="jenisTanaman" placeholder="Pisahkan dengan ';' (Eg: Jagung;Padi)">
 
         <label class="fw-semibold mb-1">Nama Produk</label>
-        <input type="text" class="form-control border-success mb-3" id="namaProduk" placeholder="Masukkan nama produk">
+        <input type="text" class="form-control border-success mb-3" name="nama" 
+               id="namaProduk" placeholder="Masukkan nama produk" required>
 
         <label class="fw-semibold mb-1">Deskripsi</label>
-        <textarea class="form-control border-success mb-3" id="deskripsi" rows="2" placeholder="Masukkan deskripsi"></textarea>
+        <textarea class="form-control border-success mb-3" name="deskripsi" 
+                  id="deskripsi" rows="2" placeholder="Masukkan deskripsi" required></textarea>
 
         <label class="fw-semibold mb-1">Penjelasan Produk</label>
-        <textarea class="form-control border-success mb-3" id="penjelasan" rows="2" placeholder="Masukkan deskripsi"></textarea>
+        <textarea class="form-control border-success mb-3" name="penjelasan" 
+                  id="penjelasan" rows="2" placeholder="Masukkan penjelasan"></textarea>
 
         <label class="fw-semibold mb-1">Manfaat & Keunggulan</label>
-        <textarea class="form-control border-success mb-3" id="manfaat" rows="2" placeholder="Masukkan deskripsi"></textarea>
+        <textarea class="form-control border-success mb-3" name="manfaat" 
+                  id="manfaat" rows="2" placeholder="Masukkan manfaat"></textarea>
 
         <label class="fw-semibold mb-1">Aturan Pakai</label>
-        <textarea class="form-control border-success mb-3" id="aturan" rows="2" placeholder="Masukkan deskripsi"></textarea>
+        <textarea class="form-control border-success mb-3" name="aturan_pakai" 
+                  id="aturan" rows="2" placeholder="Masukkan aturan pakai"></textarea>
 
         <label class="fw-semibold mb-1">Keistimewaan</label>
-        <textarea class="form-control border-success mb-3" id="keistimewaan" rows="2" placeholder="Masukkan deskripsi"></textarea>
+        <textarea class="form-control border-success mb-3" name="keistimewaan" 
+                  id="keistimewaan" rows="2" placeholder="Masukkan keistimewaan"></textarea>
 
         <label class="fw-semibold mb-1">Petunjuk Penyimpanan</label>
-        <textarea class="form-control border-success mb-3" id="penyimpanan" rows="2" placeholder="Masukkan deskripsi"></textarea>
+        <textarea class="form-control border-success mb-3" name="penyimpanan" 
+                  id="penyimpanan" rows="2" placeholder="Masukkan petunjuk penyimpanan"></textarea>
+
+        <label class="fw-semibold mb-1">Harga</label>
+        <input type="number" class="form-control border-success mb-3" name="harga" 
+               id="harga" placeholder="Masukkan harga" required>
 
         <label class="fw-semibold mb-1">Stok</label>
-        <input class="form-control border-success mb-3" type="number" id="stok" placeholder="Jumlah">
+        <input type="number" class="form-control border-success mb-3" name="stok" 
+               id="stok" placeholder="Jumlah stok" required>
 
-        <label class="fw-semibold mb-1">Unggah Gambar</label>
-        <input type="file" class="form-control border-success mb-3" id="gambarInput">
+        <label class="fw-semibold mb-1">Gambar Utama</label>
+        <input type="file" class="form-control border-success mb-3" name="gambar" 
+               id="gambarInput" accept="image/*">
+        <small class="text-muted d-block mb-3" id="currentGambar"></small>
 
-        <div class="form-check mt-2 mb-4 d-flex align-items-center gap-2">
-          <input class="form-check-input" type="checkbox" id="tampilkanInput">
-          <label for="tampilkanInput" class="form-check-label fw-semibold">Tampilkan</label>
+        <label class="fw-semibold mb-1">Gambar Kecil</label>
+        <input type="file" class="form-control border-success mb-3" name="gambar_kecil" 
+               id="gambarKecilInput" accept="image/*">
+        <small class="text-muted d-block mb-3" id="currentGambarKecil"></small>
+
+        <label class="fw-semibold mb-1">Status</label>
+        <select class="form-select border-success mb-3" name="status" id="status" required>
+          <option value="Aktif">Aktif</option>
+          <option value="Non-aktif">Non-aktif</option>
+          <option value="Dipajang">Dipajang</option>
+        </select>
+
+        <label class="fw-semibold mb-1">Atribut Produk</label>
+        <div class="mb-3">
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" name="baru" id="baru" value="1">
+            <label class="form-check-label" for="baru">Baru</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" name="laris" id="laris" value="1">
+            <label class="form-check-label" for="laris">Laris</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" name="promo" id="promo" value="1">
+            <label class="form-check-label" for="promo">Promo</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" name="bonus" id="bonus" value="1">
+            <label class="form-check-label" for="bonus">Bonus</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" name="habis" id="habis" value="1">
+            <label class="form-check-label" for="habis">Habis</label>
+          </div>
         </div>
 
-        <button id="btnSimpan" class="w-100 mt-4 gradient-btn py-2">Simpan</button>
-      </div>
+        <button type="submit" class="w-100 mt-4 gradient-btn py-2">Simpan</button>
+      </form>
     </div>
   </div>
 </div>
 
-<!-- MODAL FILTER PRODUK -->
+<!-- MODAL FILTER -->
 <div class="modal fade" id="filterModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content p-4">
       <div class="d-flex justify-content-between align-items-start mb-3">
         <div class="d-flex align-items-center gap-2">
-          <img src="../../asset/img/logo.png" alt="Logo" width="100">
+          <img src="/WEB_PPN/asset/img/logo.png" alt="Logo" width="100">
           <div class="vr" style="height: 35px; width: 2px; background-color: #000;"></div>
           <h5 class="fw-bold mb-0">Filter Produk</h5>
         </div>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
 
-      <div class="modal-body">
+      <form method="GET">
         <label class="fw-semibold mb-1">Kategori</label>
-        <select class="form-control border-success mb-3" id="filterKategori">
-          <option value="">Pilih Kategori</option>
-          <option>Pupuk Cair</option>
-          <option>Pupuk Padat</option>
-          <option>Obat Tanaman</option>
+        <select class="form-control border-success mb-3" name="kategori">
+          <option value="">Semua Kategori</option>
+          <?php while ($kat = mysqli_fetch_assoc($kategori_result)): ?>
+            <option value="<?= htmlspecialchars($kat['kategori']) ?>" 
+                    <?= $kategori_filter === $kat['kategori'] ? 'selected' : '' ?>>
+              <?= htmlspecialchars($kat['kategori']) ?>
+            </option>
+          <?php endwhile; ?>
         </select>
 
         <div class="d-flex justify-content-between mt-4">
-          <button id="btnTerapkan" class="gradient-btn px-4 py-2">Terapkan</button>
-          <button id="btnBersihkan" class="outline-btn px-4 py-2">Bersihkan</button>
+          <button type="submit" class="gradient-btn px-4 py-2">Terapkan</button>
+          <a href="produk.php" class="outline-btn px-4 py-2">Bersihkan</a>
         </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL HAPUS -->
-<div class="modal fade" id="hapusModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content p-4 rounded-4 text-center">
-      <img src="/WEB_PPN/asset/img/Logo.png" alt="Logo" width="120" class="mb-3">
-      <i class="bi bi-exclamation-triangle-fill text-danger fs-1"></i>
-      <h5 class="fw-semibold mt-3 mb-4">Apakah Anda yakin untuk menghapus produk ini?</h5>
-      <button class="btn text-white w-100 fw-semibold" id="btnKonfirmasiHapus"
-        style="background-color: #C0392B; border-radius: 12px;">Hapus</button>
+      </form>
     </div>
   </div>
 </div>
@@ -399,88 +344,128 @@
   </div>
 </div>
 
-
-<!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
 <script>
-  const produkModal = new bootstrap.Modal(document.getElementById('produkModal'));
-  const filterModal = new bootstrap.Modal(document.getElementById('filterModal'));
-  const hapusModal = new bootstrap.Modal(document.getElementById('hapusModal'));
-  const notifModal = new bootstrap.Modal(document.getElementById('notifModal'));
-  const notifText = document.getElementById('notifText');
-  const notifIcon = document.getElementById('notifIcon');
+const produkModal = new bootstrap.Modal(document.getElementById('produkModal'));
+const filterModal = new bootstrap.Modal(document.getElementById('filterModal'));
+const notifModal = new bootstrap.Modal(document.getElementById('notifModal'));
 
-  // Tambah Produk
-  document.getElementById('btnTambah').addEventListener('click', () => {
-    produkModal.show();
-  });
+// Tambah Produk
+document.getElementById('btnTambah').addEventListener('click', () => {
+  document.getElementById('produkForm').reset();
+  document.getElementById('produkId').value = '';
+  document.getElementById('formAction').value = 'tambah';
+  document.getElementById('modalTitle').textContent = 'Tambah Produk';
+  document.getElementById('currentGambar').textContent = '';
+  document.getElementById('currentGambarKecil').textContent = '';
+  document.getElementById('gambarInput').required = true;
+  document.getElementById('gambarKecilInput').required = true;
+  produkModal.show();
+});
 
-  // Tombol Edit Produk
-  document.querySelectorAll('.btn-edit').forEach(btn => {
-    btn.addEventListener('click', () => {
-      produkModal.show();
-    });
-  });
-
-  // Filter Produk
-  document.getElementById('btnFilter').addEventListener('click', () => {
-    filterModal.show();
-  });
-
-  // Simpan Produk
-  document.getElementById('btnSimpan').addEventListener('click', () => {
-    produkModal.hide();
-    setTimeout(() => {
-      const isSuccess = Math.random() > 0.3;
-      if (isSuccess) {
-        notifIcon.className = 'bi bi-check-circle-fill text-success fs-1 mb-3';
-        notifText.textContent = "Produk berhasil disimpan!";
+// Edit Product
+function editProduct(id) {
+  fetch(`../action/get_produk.php?id=${id}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        const p = data.data;
+        document.getElementById('produkId').value = p.id;
+        document.getElementById('formAction').value = 'edit';
+        document.getElementById('modalTitle').textContent = 'Edit Produk';
+        document.getElementById('kategori').value = p.kategori;
+        document.getElementById('jenisTanaman').value = p.jenis_tanaman || '';
+        document.getElementById('namaProduk').value = p.nama;
+        document.getElementById('deskripsi').value = p.deskripsi;
+        document.getElementById('penjelasan').value = p.penjelasan || '';
+        document.getElementById('manfaat').value = p.manfaat || '';
+        document.getElementById('aturan').value = p.aturan_pakai || '';
+        document.getElementById('keistimewaan').value = p.keistimewaan || '';
+        document.getElementById('penyimpanan').value = p.penyimpanan || '';
+        document.getElementById('harga').value = p.harga;
+        document.getElementById('stok').value = p.stok;
+        document.getElementById('status').value = p.status;
+        
+        document.getElementById('baru').checked = p.atribut.baru;
+        document.getElementById('laris').checked = p.atribut.laris;
+        document.getElementById('promo').checked = p.atribut.promo;
+        document.getElementById('bonus').checked = p.atribut.bonus;
+        document.getElementById('habis').checked = p.atribut.habis;
+        
+        document.getElementById('currentGambar').textContent = `Gambar saat ini: ${p.gambar}`;
+        document.getElementById('currentGambarKecil').textContent = `Gambar kecil saat ini: ${p.gambar_kecil}`;
+        document.getElementById('gambarInput').required = false;
+        document.getElementById('gambarKecilInput').required = false;
+        
+        produkModal.show();
       } else {
-        notifIcon.className = 'bi bi-x-circle-fill text-danger fs-1 mb-3';
-        notifText.textContent = "Gagal menyimpan produk!";
+        showNotif(false, data.message);
       }
-      notifModal.show();
-      setTimeout(() => notifModal.hide(), 1600);
-    }, 400);
-  });
+    })
+    .catch(err => showNotif(false, 'Error loading product data'));
+}
 
-  // Tombol Hapus
-  document.querySelectorAll('.btn-delete').forEach(btn => {
-    btn.addEventListener('click', () => {
-      hapusModal.show();
+// Submit Form
+document.getElementById('produkForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const formData = new FormData(e.target);
+  const action = document.getElementById('formAction').value;
+  const url = action === 'tambah' ? '../action/tambah.php?mod=produk' : '../action/ubah.php?mod=produk';
+  
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData
     });
-  });
-
-  // Konfirmasi Hapus
-  document.getElementById('btnKonfirmasiHapus').addEventListener('click', () => {
-    hapusModal.hide();
+    
+    produkModal.hide();
+    
+    // Reload page to show updated data
     setTimeout(() => {
-      notifIcon.className = 'bi bi-check-circle-fill text-success fs-1 mb-3';
-      notifText.textContent = "Produk berhasil dihapus!";
-      notifModal.show();
-      setTimeout(() => notifModal.hide(), 1500);
-    }, 400);
-  });
+      window.location.reload();
+    }, 500);
+    
+  } catch (error) {
+    showNotif(false, 'Error menyimpan produk');
+  }
+});
 
-  // Filter Buttons
-  document.getElementById('btnTerapkan').addEventListener('click', () => {
-    filterModal.hide();
-    setTimeout(() => {
-      notifIcon.className = 'bi bi-check-circle-fill text-success fs-1 mb-3';
-      notifText.textContent = "Filter diterapkan!";
-      notifModal.show();
-      setTimeout(() => notifModal.hide(), 1500);
-    }, 400);
-  });
+// Confirm Delete
+function confirmDelete(id) {
+  if (confirm('Apakah Anda yakin ingin menghapus produk ini?')) {
+    window.location.href = `produk.php?action=delete&id=${id}`;
+  }
+}
 
-  document.getElementById('btnBersihkan').addEventListener('click', () => {
-    document.getElementById('filterKategori').value = '';
-    notifIcon.className = 'bi bi-x-circle-fill text-warning fs-1 mb-3';
-    notifText.textContent = "Filter dibersihkan!";
-    notifModal.show();
-    setTimeout(() => notifModal.hide(), 1500);
+// Filter
+document.getElementById('btnFilter').addEventListener('click', () => {
+  filterModal.show();
+});
+
+// Show Notification
+function showNotif(success, message) {
+  const icon = document.getElementById('notifIcon');
+  const text = document.getElementById('notifText');
+  
+  if (success) {
+    icon.className = 'bi bi-check-circle-fill text-success fs-1 mb-3';
+  } else {
+    icon.className = 'bi bi-x-circle-fill text-danger fs-1 mb-3';
+  }
+  
+  text.textContent = message;
+  notifModal.show();
+  
+  setTimeout(() => notifModal.hide(), 2000);
+}
+
+// Auto-hide alerts
+setTimeout(() => {
+  document.querySelectorAll('.alert').forEach(alert => {
+    alert.classList.remove('show');
   });
+}, 5000);
 </script>
 
 </body>

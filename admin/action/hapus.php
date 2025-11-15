@@ -1,23 +1,19 @@
 <?php
-// admin/action/hapus.php (UPDATE)
-
 session_start();
 include "../../config/koneksi.php";
 
-$mod = $_GET['mod'];
-$id = $_GET['id'];
+$mod = isset($_GET['mod']) ? $_GET['mod'] : '';
+$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
-// Validasi input
-if (empty($mod) || empty($id) || !is_numeric($id)) {
+if (empty($mod) || $id === 0) {
     $_SESSION['error_message'] = 'Parameter tidak valid';
-    header('Location: ../' . $mod);
+    header('Location: ../../admin/page/produk.php');
     exit;
 }
 
 try {
     switch ($mod) {
         case 'produk': 
-            // Ambil data produk untuk mendapatkan nama file gambar
             $result = mysqli_query($conn, "SELECT * FROM produk WHERE id=$id");
             
             if (!$result || mysqli_num_rows($result) == 0) {
@@ -26,17 +22,16 @@ try {
             
             $row = mysqli_fetch_assoc($result);
             
-            // Hapus file gambar utama jika ada
+            // Hapus file gambar utama
             if (!empty($row['gambar']) && file_exists("../../asset/img/" . $row['gambar'])) {
                 unlink("../../asset/img/" . $row['gambar']);
             }
             
-            // Hapus file gambar kecil jika ada
+            // Hapus file gambar kecil
             if (!empty($row['gambar_kecil']) && file_exists("../../asset/img/" . $row['gambar_kecil'])) {
                 unlink("../../asset/img/" . $row['gambar_kecil']);
             }
             
-            // Hapus dari database menggunakan prepared statement
             $stmt = $conn->prepare("DELETE FROM produk WHERE id = ?");
             $stmt->bind_param("i", $id);
             
@@ -56,7 +51,6 @@ try {
             
             $row = mysqli_fetch_assoc($result);
             
-            // Hapus gambar jika bukan gambar default
             if ($row['gambar'] != 'Logo Ganyeum.png' && file_exists("../../asset/img/" . $row['gambar'])) {
                 unlink("../../asset/img/" . $row['gambar']);
             }
@@ -80,7 +74,6 @@ try {
             
             $row = mysqli_fetch_assoc($result);
             
-            // Hapus file gambar
             if (!empty($row['gambar']) && file_exists("../../asset/img/" . $row['gambar'])) {
                 unlink("../../asset/img/" . $row['gambar']);
             }
@@ -94,17 +87,6 @@ try {
             
             $_SESSION['success_message'] = 'Galeri berhasil dihapus';
             break;
-
-        case 'diskon': 
-            $stmt = $conn->prepare("DELETE FROM diskon WHERE id = ?");
-            $stmt->bind_param("i", $id);
-            
-            if (!$stmt->execute()) {
-                throw new Exception('Gagal menghapus diskon dari database');
-            }
-            
-            $_SESSION['success_message'] = 'Diskon berhasil dihapus';
-            break;
         
         default:
             throw new Exception('Module tidak dikenali');
@@ -114,6 +96,6 @@ try {
     $_SESSION['error_message'] = $e->getMessage();
 }
 
-header('Location: ../' . $mod);
+header('Location: ../../admin/page/produk.php');
 exit;
 ?>

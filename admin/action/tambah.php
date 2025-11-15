@@ -1,13 +1,14 @@
 <?php
-// admin/action/tambah.php (UPDATE untuk case 'produk')
-
+// admin/action/tambah.php - FIXED VERSION FOR PRODUK
+session_start();
 date_default_timezone_set('Asia/Jakarta');
 include '../../config/koneksi.php';
 
-$mod = $_GET['mod'];
+$mod = $_GET['mod'] ?? '';
 
 // Fungsi untuk validasi dan sanitasi input
 function sanitize_input($data) {
+    if ($data === null) return '';
     $data = trim($data);
     $data = stripslashes($data);
     $data = htmlspecialchars($data);
@@ -15,7 +16,7 @@ function sanitize_input($data) {
 }
 
 // Fungsi untuk upload gambar dengan validasi
-function upload_image($file, $upload_path, $allowed_types = ['jpg', 'jpeg', 'png', 'gif']) {
+function upload_image($file, $upload_path, $allowed_types = ['jpg', 'jpeg', 'png', 'gif', 'webp']) {
     if (!isset($file) || $file['error'] == UPLOAD_ERR_NO_FILE) {
         return ['success' => false, 'message' => 'No file uploaded'];
     }
@@ -25,7 +26,7 @@ function upload_image($file, $upload_path, $allowed_types = ['jpg', 'jpeg', 'png
     }
     
     // Validasi ukuran file (max 5MB)
-    $max_size = 5 * 1024 * 1024; // 5MB
+    $max_size = 5 * 1024 * 1024;
     if ($file['size'] > $max_size) {
         return ['success' => false, 'message' => 'File terlalu besar. Maksimal 5MB'];
     }
@@ -33,11 +34,11 @@ function upload_image($file, $upload_path, $allowed_types = ['jpg', 'jpeg', 'png
     // Validasi tipe file
     $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     if (!in_array($file_ext, $allowed_types)) {
-        return ['success' => false, 'message' => 'Tipe file tidak diizinkan'];
+        return ['success' => false, 'message' => 'Tipe file tidak diizinkan. Gunakan: ' . implode(', ', $allowed_types)];
     }
     
     // Generate nama file unik
-    $new_filename = uniqid() . '_' . time() . '.' . $file_ext;
+    $new_filename = 'produk_' . uniqid() . '_' . time() . '.' . $file_ext;
     $target_path = $upload_path . $new_filename;
     
     // Upload file
@@ -51,39 +52,42 @@ function upload_image($file, $upload_path, $allowed_types = ['jpg', 'jpeg', 'png
 switch ($mod) {
     case 'produk':
         try {
-            // Validasi input
+            // Validasi input wajib
             if (empty($_POST['nama']) || empty($_POST['kategori'])) {
                 throw new Exception('Nama dan kategori produk wajib diisi');
             }
             
+            // Validasi gambar wajib untuk tambah data
+            if (!isset($_FILES['gambar']) || $_FILES['gambar']['error'] == UPLOAD_ERR_NO_FILE) {
+                throw new Exception('Gambar utama wajib diupload');
+            }
+            
+            if (!isset($_FILES['gambar_kecil']) || $_FILES['gambar_kecil']['error'] == UPLOAD_ERR_NO_FILE) {
+                throw new Exception('Gambar kecil wajib diupload');
+            }
+            
             // Ambil dan sanitasi data
             $kategori = sanitize_input($_POST['kategori']);
-            $jenis_tanaman = isset($_POST['jenis_tanaman']) ? sanitize_input($_POST['jenis_tanaman']) : '';
+            $jenis_tanaman = sanitize_input($_POST['jenis_tanaman'] ?? '');
             $nama = sanitize_input($_POST['nama']);
-            $deskripsi = isset($_POST['deskripsi']) ? sanitize_input($_POST['deskripsi']) : '';
-            $penjelasan = isset($_POST['penjelasan']) ? sanitize_input($_POST['penjelasan']) : '';
-            $manfaat = isset($_POST['manfaat']) ? sanitize_input($_POST['manfaat']) : '';
-            $aturan = isset($_POST['aturan']) ? sanitize_input($_POST['aturan']) : '';
-            $keistimewaan = isset($_POST['keistimewaan']) ? sanitize_input($_POST['keistimewaan']) : '';
-            $penyimpanan = isset($_POST['penyimpanan']) ? sanitize_input($_POST['penyimpanan']) : '';
+            $deskripsi = sanitize_input($_POST['deskripsi'] ?? '');
+            $penjelasan = sanitize_input($_POST['penjelasan'] ?? '');
+            $manfaat = sanitize_input($_POST['manfaat'] ?? '');
+            $aturan = sanitize_input($_POST['aturan_pakai'] ?? '');
+            $keistimewaan = sanitize_input($_POST['keistimewaan'] ?? '');
+            $penyimpanan = sanitize_input($_POST['penyimpanan'] ?? '');
             $stok = isset($_POST['stok']) ? intval($_POST['stok']) : 0;
             $harga = isset($_POST['harga']) ? floatval($_POST['harga']) : 0;
-            $status = isset($_POST['status']) ? sanitize_input($_POST['status']) : 'Aktif';
+            $status = sanitize_input($_POST['status'] ?? 'Aktif');
 
             // Handle atribut (badge)
-            $baru = isset($_POST['baru']) ? 'Baru' : '';
-            $laris = isset($_POST['laris']) ? 'Laris' : '';
-            $promo = isset($_POST['promo']) ? 'Promo' : '';
-            $bonus = isset($_POST['bonus']) ? 'Bonus' : '';
-            $habis = isset($_POST['habis']) ? 'Habis' : '';
-            
-            $atribut_tersedia = array_filter([$baru, $laris, $promo, $bonus, $habis]);
-            $atribut = implode(' ', $atribut_tersedia);
-
-            // Handle status dipajang
-            if ($status === 'Aktif' && isset($_POST['pajang'])) {
-                $status = 'Dipajang';
-            }
+            $atribut_array = [];
+            if (isset($_POST['baru'])) $atribut_array[] = 'Baru';
+            if (isset($_POST['laris'])) $atribut_array[] = 'Laris';
+            if (isset($_POST['promo'])) $atribut_array[] = 'Promo';
+            if (isset($_POST['bonus'])) $atribut_array[] = 'Bonus';
+            if (isset($_POST['habis'])) $atribut_array[] = 'Habis';
+            $atribut = implode(' ', $atribut_array);
 
             // Upload gambar utama
             $lokasi = "../../asset/img/";
@@ -99,7 +103,9 @@ switch ($mod) {
             
             if (!$gambar_kecil_result['success']) {
                 // Hapus gambar utama jika gambar kecil gagal
-                unlink($lokasi . $nama_gambar);
+                if (file_exists($lokasi . $nama_gambar)) {
+                    unlink($lokasi . $nama_gambar);
+                }
                 throw new Exception('Error upload gambar kecil: ' . $gambar_kecil_result['message']);
             }
             $nama_gambar_kecil = $gambar_kecil_result['filename'];
@@ -119,8 +125,8 @@ switch ($mod) {
             );
             
             if ($stmt->execute()) {
-                $_SESSION['success_message'] = 'Produk berhasil ditambahkan';
-                header('Location: ../produk');
+                $_SESSION['success_message'] = 'Produk berhasil ditambahkan!';
+                header('Location: ../produk.php');
                 exit;
             } else {
                 throw new Exception('Gagal menyimpan ke database: ' . $stmt->error);
@@ -136,70 +142,122 @@ switch ($mod) {
             }
             
             $_SESSION['error_message'] = $e->getMessage();
-            header('Location: ../produk');
+            header('Location: ../produk.php');
             exit;
         }
         break;
 
-    // Case lainnya tetap sama (ulasan, galeri, diskon)
     case 'ulasan':
-        $nama = $_POST['nama'];
-        $ulasan = $_POST['ulasan'];
-        $nilai = $_POST['nilai'];
-        $status = $_POST['status'];
-        $nama_gambar = 'Logo Ganyeum.png';
+        try {
+            $nama = sanitize_input($_POST['nama'] ?? '');
+            $produk = sanitize_input($_POST['produk'] ?? '');
+            $alamat = sanitize_input($_POST['alamat'] ?? '');
+            $ulasan = sanitize_input($_POST['ulasan'] ?? '');
+            $nilai = intval($_POST['nilai'] ?? 5);
+            $status = sanitize_input($_POST['status'] ?? 'Disembunyikan');
+            $nama_gambar = 'Logo Ganyeum.png';
 
-        if (isset($_FILES['gambar']) && $_FILES['gambar']['error'] != UPLOAD_ERR_NO_FILE) {
-            if ($_FILES['gambar']['error'] == UPLOAD_ERR_OK) {
-                $lokasi = "../../asset/img/";
-                $nama_gambar = $_FILES["gambar"]["name"];
-                move_uploaded_file($_FILES['gambar']['tmp_name'], $lokasi.$nama_gambar);
+            if (isset($_FILES['gambar']) && $_FILES['gambar']['error'] != UPLOAD_ERR_NO_FILE) {
+                $upload_result = upload_image($_FILES['gambar'], "../../asset/img/");
+                if ($upload_result['success']) {
+                    $nama_gambar = $upload_result['filename'];
+                }
             }
-        }
 
-        $query = "INSERT INTO ulasan (nama, ulasan, nilai, gambar, tanggal, status)
-                  VALUES ('$nama', '$ulasan', '$nilai', '$nama_gambar', NOW(), '$status')";
-        mysqli_query($conn, $query);
-        header('Location: ../ulasan');
-        exit;
+            $stmt = $conn->prepare("INSERT INTO ulasan (nama, produk, alamat, ulasan, nilai, gambar, tanggal, status)
+                      VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)");
+            $stmt->bind_param("ssssiss", $nama, $produk, $alamat, $ulasan, $nilai, $nama_gambar, $status);
+            
+            if ($stmt->execute()) {
+                $_SESSION['success_message'] = 'Ulasan berhasil ditambahkan!';
+            } else {
+                throw new Exception('Gagal menyimpan ulasan');
+            }
+            
+            header('Location: ../ulasan.php');
+            exit;
+        } catch (Exception $e) {
+            $_SESSION['error_message'] = $e->getMessage();
+            header('Location: ../ulasan.php');
+            exit;
+        }
         break;
     
     case 'galeri':
-        $deskripsi = $_POST['deskripsi'];
-        $status = $_POST['status'];
+        try {
+            $judul = sanitize_input($_POST['judul'] ?? '');
+            $deskripsi = sanitize_input($_POST['deskripsi'] ?? '');
+            $status = sanitize_input($_POST['status'] ?? 'Ditampilkan');
 
-        $lokasi = "../../asset/img/";
-        $nama_gambar = $_FILES["gambar"]["name"];
-        move_uploaded_file($_FILES['gambar']['tmp_name'], $lokasi.$nama_gambar);
+            if (!isset($_FILES['gambar']) || $_FILES['gambar']['error'] == UPLOAD_ERR_NO_FILE) {
+                throw new Exception('Gambar wajib diupload');
+            }
 
-        $query = "INSERT INTO galeri (deskripsi, gambar, tanggal, status)
-                  VALUES ('$deskripsi', '$nama_gambar', NOW(), '$status')";
-        mysqli_query($conn, $query);
-        header('Location: ../galeri');
-        exit;
+            $upload_result = upload_image($_FILES['gambar'], "../../asset/img/");
+            if (!$upload_result['success']) {
+                throw new Exception($upload_result['message']);
+            }
+            $nama_gambar = $upload_result['filename'];
+
+            $stmt = $conn->prepare("INSERT INTO galeri (judul, deskripsi, gambar, tanggal, status)
+                      VALUES (?, ?, ?, NOW(), ?)");
+            $stmt->bind_param("ssss", $judul, $deskripsi, $nama_gambar, $status);
+            
+            if ($stmt->execute()) {
+                $_SESSION['success_message'] = 'Galeri berhasil ditambahkan!';
+            } else {
+                throw new Exception('Gagal menyimpan galeri');
+            }
+            
+            header('Location: ../galeri.php');
+            exit;
+        } catch (Exception $e) {
+            $_SESSION['error_message'] = $e->getMessage();
+            header('Location: ../galeri.php');
+            exit;
+        }
         break;
 
     case 'diskon':
-        $id_produk = $_POST['id_produk'];
-        $diskon = $_POST['diskon'];
-        $tanggal_mulai = $_POST['tanggal_mulai'];
-        $tanggal_selesai = $_POST['tanggal_selesai'];
-        $status = "Direncanakan";
+        try {
+            $id_produk = intval($_POST['id_produk'] ?? 0);
+            $diskon = intval($_POST['diskon'] ?? 0);
+            $tanggal_mulai = $_POST['tanggal_mulai'] ?? '';
+            $tanggal_selesai = $_POST['tanggal_selesai'] ?? '';
+            $status = "Direncanakan";
 
-        $tanggal_waktu_mulai = new DateTime($_POST['tanggal_mulai']);
-        $tanggal_waktu_selesai = new DateTime($_POST['tanggal_selesai']);
-        $tanggal_sekarang = new DateTime();
-        if ($tanggal_sekarang >= $tanggal_waktu_mulai && $tanggal_sekarang <= $tanggal_waktu_selesai) {
-            $status = "Berjalan";
-        } else if ($tanggal_sekarang > $tanggal_waktu_selesai) {
-            $status = "Selesai";
+            $tanggal_waktu_mulai = new DateTime($tanggal_mulai);
+            $tanggal_waktu_selesai = new DateTime($tanggal_selesai);
+            $tanggal_sekarang = new DateTime();
+            
+            if ($tanggal_sekarang >= $tanggal_waktu_mulai && $tanggal_sekarang <= $tanggal_waktu_selesai) {
+                $status = "Berjalan";
+            } else if ($tanggal_sekarang > $tanggal_waktu_selesai) {
+                $status = "Selesai";
+            }
+
+            $stmt = $conn->prepare("INSERT INTO diskon (id_produk, diskon, tanggal_mulai, tanggal_selesai, status)
+                      VALUES (?, ?, ?, ?, ?)");
+            $stmt->bind_param("iisss", $id_produk, $diskon, $tanggal_mulai, $tanggal_selesai, $status);
+            
+            if ($stmt->execute()) {
+                $_SESSION['success_message'] = 'Diskon berhasil ditambahkan!';
+            } else {
+                throw new Exception('Gagal menyimpan diskon');
+            }
+            
+            header('Location: ../diskon.php');
+            exit;
+        } catch (Exception $e) {
+            $_SESSION['error_message'] = $e->getMessage();
+            header('Location: ../diskon.php');
+            exit;
         }
-
-        $query = "INSERT INTO diskon (id_produk, diskon, tanggal_mulai, tanggal_selesai, status)
-                  VALUES ('$id_produk', '$diskon', '$tanggal_mulai', '$tanggal_selesai', '$status')";
-        mysqli_query($conn, $query);
-        header('Location: ../diskon');
-        exit;
         break;
+        
+    default:
+        $_SESSION['error_message'] = 'Module tidak valid';
+        header('Location: ../produk.php');
+        exit;
 }
 ?>
