@@ -1,5 +1,5 @@
 <?php
-// admin/page/logbook.php - BACKEND INTEGRATION ONLY (Frontend tetap sama)
+// admin/page/logbook.php - COMPLETE VERSION WITH ANALYTICS
 require_once __DIR__ . '/../auth_check.php';
 require_once __DIR__ . '/../../config/koneksi.php';
 
@@ -33,20 +33,6 @@ FROM logbook";
 $stats_result = mysqli_query($conn, $stats_query);
 $stats = mysqli_fetch_assoc($stats_result);
 
-// Get monthly chart data (last 6 months)
-$chart_query = "SELECT 
-    DATE_FORMAT(tanggal, '%Y-%m') as bulan,
-    SUM(jumlah_total) as total
-FROM logbook 
-WHERE tanggal >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
-GROUP BY DATE_FORMAT(tanggal, '%Y-%m')
-ORDER BY bulan";
-$chart_result = mysqli_query($conn, $chart_query);
-$chart_data = [];
-while ($row = mysqli_fetch_assoc($chart_result)) {
-    $chart_data[] = $row;
-}
-
 // Get product sales data
 $product_query = "SELECT produk_json FROM logbook";
 $product_result = mysqli_query($conn, $product_query);
@@ -67,9 +53,6 @@ while ($row = mysqli_fetch_assoc($product_result)) {
     }
 }
 
-// Prepare chart labels and data
-$chart_labels = json_encode(array_column($chart_data, 'bulan'));
-$chart_values = json_encode(array_column($chart_data, 'total'));
 $product_labels = json_encode(array_keys($product_stats));
 $product_values = json_encode(array_values($product_stats));
 ?>
@@ -107,6 +90,42 @@ $product_values = json_encode(array_values($product_stats));
       from { transform: translateX(400px); opacity: 0; }
       to { transform: translateX(0); opacity: 1; }
     }
+
+    /* Button Analytics Styling */
+    .btn-analitik {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: linear-gradient(135deg, #FFD95A, #F6B93B);
+      border: none;
+      color: white;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      transition: all 0.2s ease;
+      cursor: pointer;
+
+    }
+
+    .btn-analitik:hover {
+      transform: scale(1.1) translateY(-2px);
+      box-shadow: 0 6px 20px rgba(43, 141, 76, 0.6);
+      background: linear-gradient(90deg, #238B3E, #C5C140);
+    }
+
+    .btn-analitik i {
+      font-size: 1.2rem;
+    }
+
+    .card-stat {
+      position: relative;
+      min-height: 250px;
+    }
   </style>
 </head>
 
@@ -139,6 +158,10 @@ $product_values = json_encode(array_values($product_stats));
         <div class="col-md-4 col-lg-3">
           <div class="card-stat">
             <canvas id="chartProduk" height="200"></canvas>
+            <!-- TOMBOL ANALYTICS - INI YANG DITAMBAHKAN -->
+            <button class="btn-analitik" onclick="showAnalyticsModal()" title="Lihat Detail Analitik" width="5" >
+              <i class="bi bi-search"></i>
+            </button>
           </div>
         </div>
         <div class="col-md-2 col-lg-3">
@@ -255,35 +278,106 @@ $product_values = json_encode(array_values($product_stats));
     </div>
   </div>
 
-<!-- ================== MODAL ANALITIK ================== -->
+<!-- ================== MODAL ANALITIK (NEW) ================== -->
 <div class="modal fade" id="analitikModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content p-4">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <div class="d-flex align-items-center gap-2">
-          <img src="/WEB_PPN/asset/img/Logo.png" alt="Logo" width="90">
-          <h5 class="fw-semibold m-0">Analitik</h5>
+  <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-content p-4 rounded-4">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex align-items-center gap-3">
+          <img src="/WEB_PPN/asset/img/Logo.png" alt="Logo" width="80">
+          <div>
+            <h4 class="fw-bold m-0">Analitik Penjualan</h4>
+            <small class="text-muted">Detail penjualan produk per bulan</small>
+          </div>
         </div>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body text-center">
-        <div class="d-flex justify-content-center gap-2 mb-3">
-          <select id="produkSelect" class="form-select w-auto">
-            <option value="">Pilih Produk</option>
-            <option>TNH</option>
-            <option>TNA</option>
-            <option>TNS</option>
-          </select>
-          <input type="number" id="tahunInput" class="form-control w-auto" placeholder="Tahun">
-          <button class="gradient-btn px-3">Cari</button>
+      
+      <div class="modal-body">
+        <!-- Filter Form -->
+        <div class="row mb-4">
+          <div class="col-md-5">
+            <label class="form-label fw-semibold">Pilih Produk</label>
+            <select id="produkSelect" class="form-select border-success">
+              <option value=""> Semua Produk</option>
+              <?php
+              // Ambil daftar produk unik dari logbook
+              $produk_query = "SELECT DISTINCT produk_json FROM logbook";
+              $produk_result = mysqli_query($conn, $produk_query);
+              
+              $unique_products = [];
+              while ($row = mysqli_fetch_assoc($produk_result)) {
+                  $products = json_decode($row['produk_json'], true);
+                  if (is_array($products)) {
+                      foreach ($products as $product) {
+                          $nama = $product['nama'] ?? '';
+                          if (!empty($nama) && !in_array($nama, $unique_products)) {
+                              $unique_products[] = $nama;
+                              echo '<option value="' . htmlspecialchars($nama) . '">' . htmlspecialchars($nama) . '</option>';
+                          }
+                      }
+                  }
+              }
+              ?>
+            </select>
+          </div>
+          
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Tahun</label>
+            <input type="number" id="tahunInput" class="form-control border-success" 
+                   value="<?= date('Y') ?>" min="2020" max="<?= date('Y') + 1 ?>">
+          </div>
+          
+          <div class="col-md-3 d-flex align-items-end">
+            <button class="btn btn-success w-100 py-2 fw-semibold" onclick="loadChartData()">
+              <i class="bi bi-search"></i> Tampilkan Data
+            </button>
+          </div>
         </div>
-        <canvas id="chartAnalitik" height="250"></canvas>
+
+        <!-- Chart Container -->
+        <div class="position-relative" style="min-height: 400px;">
+          <canvas id="chartAnalitik" height="100"></canvas>
+          <div id="chartLoading" class="text-center py-5 position-absolute top-50 start-50 translate-middle" style="display: none;">
+            <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3 fw-semibold text-muted">Memuat data analitik...</p>
+          </div>
+        </div>
+
+        <!-- Summary Info -->
+        <div class="row mt-4 g-3">
+          <div class="col-md-4">
+            <div class="p-3 bg-success bg-opacity-10 rounded-3 border border-success text-center">
+              <h6 class="text-muted mb-2">Total Penjualan</h6>
+              <h3 class="fw-bold text-success mb-1" id="totalPenjualan">0</h3>
+              <small class="text-muted" id="periodePenjualan">unit terjual</small>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="p-3 bg-success bg-opacity-10 rounded-3 border border-success text-center">
+              <h6 class="text-muted mb-2">Bulan Tertinggi</h6>
+              <h3 class="fw-bold text-success mb-1" id="bulanTertinggi">-</h3>
+              <small class="text-muted" id="nilaiTertinggi">0 unit</small>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="p-3 bg-success bg-opacity-10 rounded-3 border border-success text-center">
+              <h6 class="text-muted mb-2">Rata-rata per Bulan</h6>
+              <h3 class="fw-bold text-success mb-1" id="rataRata">0</h3>
+              <small class="text-muted">unit per bulan</small>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ================== MODAL FILTER LOGBOOK ================== -->
+<!-- Filter Modal -->
 <div class="modal fade" id="filterModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content p-4">
@@ -329,7 +423,7 @@ $product_values = json_encode(array_values($product_stats));
   </div>
 </div>
 
-<!-- ================== MODAL ADD/EDIT LOGBOOK ================== -->
+<!-- ADD/EDIT LOGBOOK Modal -->
 <div class="modal fade" id="logbookModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content p-4">
@@ -606,6 +700,159 @@ function showNotif(success, message) {
   notifText.textContent = message;
   notifModal.show();
   setTimeout(() => notifModal.hide(), 2000);
+}
+
+// ============ ANALYTICS CHART FUNCTIONS ============
+let analyticsChart = null;
+
+function showAnalyticsModal() {
+  const analitikModal = new bootstrap.Modal(document.getElementById('analitikModal'));
+  analitikModal.show();
+  
+  // Load data pertama kali
+  setTimeout(() => {
+    loadChartData();
+  }, 300);
+}
+
+async function loadChartData() {
+  const produk = document.getElementById('produkSelect').value;
+  const tahun = document.getElementById('tahunInput').value || new Date().getFullYear();
+  
+  // Validasi tahun
+  if (tahun < 2020 || tahun > new Date().getFullYear() + 1) {
+    showNotif(false, 'Tahun tidak valid!');
+    return;
+  }
+  
+  // Show loading
+  document.getElementById('chartLoading').style.display = 'block';
+  document.getElementById('chartAnalitik').style.opacity = '0.3';
+  
+  try {
+    const response = await fetch(`../action/get_chart_data.php?produk=${encodeURIComponent(produk)}&tahun=${tahun}`);
+    const result = await response.json();
+    
+    if (result.success) {
+      updateAnalyticsChart(result.data);
+      updateSummaryInfo(result.data);
+    } else {
+      showNotif(false, result.message || 'Gagal memuat data');
+    }
+  } catch (error) {
+    showNotif(false, 'Error: ' + error.message);
+  } finally {
+    document.getElementById('chartLoading').style.display = 'none';
+    document.getElementById('chartAnalitik').style.opacity = '1';
+  }
+}
+
+function updateAnalyticsChart(data) {
+  const ctx = document.getElementById('chartAnalitik');
+  
+  // Destroy chart lama jika ada
+  if (analyticsChart) {
+    analyticsChart.destroy();
+  }
+  
+  // Create new chart
+  analyticsChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.labels,
+      datasets: [{
+        label: data.produk + ' (unit)',
+        data: data.values,
+        backgroundColor: 'rgba(43, 141, 76, 0.7)',
+        borderColor: 'rgba(43, 141, 76, 1)',
+        borderWidth: 2,
+        borderRadius: 8,
+        barThickness: 40
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: {
+            font: { size: 13, weight: 'bold' },
+            padding: 20,
+            usePointStyle: true
+          }
+        },
+        title: {
+          display: true,
+          text: `Grafik Penjualan ${data.produk} - Tahun ${data.tahun}`,
+          font: { size: 18, weight: 'bold' },
+          padding: { top: 10, bottom: 30 },
+          color: '#2B8D4C'
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          padding: 15,
+          cornerRadius: 10,
+          displayColors: false,
+          callbacks: {
+            label: function(context) {
+              return `Terjual: ${context.parsed.y} unit`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            font: { size: 12 },
+            color: '#666'
+          }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: '#e0e0e0' },
+          ticks: {
+            stepSize: 5,
+            font: { size: 12 },
+            color: '#666',
+            callback: function(value) {
+              return value;
+            }
+          }
+        }
+      },
+      animation: {
+        duration: 1200,
+        easing: 'easeInOutQuart'
+      }
+    }
+  });
+}
+
+function updateSummaryInfo(data) {
+  // Total penjualan
+  document.getElementById('totalPenjualan').textContent = data.total.toLocaleString('id-ID');
+  document.getElementById('periodePenjualan').textContent = `${data.produk} - ${data.tahun}`;
+  
+  // Bulan tertinggi
+  const maxValue = Math.max(...data.values);
+  const maxIndex = data.values.indexOf(maxValue);
+  
+  if (maxValue > 0) {
+    document.getElementById('bulanTertinggi').textContent = data.labels[maxIndex];
+    document.getElementById('nilaiTertinggi').textContent = `${maxValue} unit`;
+  } else {
+    document.getElementById('bulanTertinggi').textContent = '-';
+    document.getElementById('nilaiTertinggi').textContent = '0 unit';
+  }
+  
+  // Rata-rata per bulan
+  const average = data.total > 0 ? Math.round(data.total / 12) : 0;
+  document.getElementById('rataRata').textContent = average.toLocaleString('id-ID');
 }
 
 // Auto-hide alerts
